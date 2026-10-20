@@ -82,6 +82,9 @@ class Station(BaseModel):
     sequence: int = Field(description="Order along the product flow; infrastructure stations use 0")
     function: str = Field(description="What this station does to the product")
     cycle_time_s: float | None = Field(default=None, description="Seconds per cycle, if known")
+    length_mm: float | None = Field(default=None, description="Approximate envelope along the product flow, mm")
+    width_mm: float | None = Field(default=None, description="Approximate envelope across the flow, mm")
+    height_mm: float | None = Field(default=None, description="Approximate envelope height from the floor, mm")
     components: list[Component] = Field(default_factory=list)
 
 
@@ -92,6 +95,10 @@ class MachineDesign(BaseModel):
     product: str = Field(description="What the machine processes")
     throughput: str | None = Field(default=None, description="e.g. '300 blisters/min'")
     footprint: str | None = Field(default=None, description="e.g. '6.5 m x 1.8 m'")
+    layout_style: Literal["inline", "u_shape"] = Field(
+        default="inline",
+        description="'inline': process stations in a straight line; 'u_shape': two rows, the flow turns back",
+    )
     stations: list[Station] = Field(default_factory=list)
     utilities: list[str] = Field(default_factory=list, description="e.g. '400 V 3~ 50 Hz', '6 bar dry air'")
     assumptions: list[str] = Field(default_factory=list)

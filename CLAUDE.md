@@ -8,6 +8,8 @@
   Tests must not need network or API keys: use `MockProvider`, `httpx.MockTransport` (connectors,
   OpenAI-compatible) and `httpx2.MockTransport` (Anthropic SDK 1.x).
 - Frontend: `cd frontend && npm run build` type-checks. Types in `src/types.ts` mirror `models.py`.
-- Run locally: `uvicorn app.main:create_app --factory --reload` + `npm run dev`; `MF_LLM_PROVIDER=mock`
-  works without a key.
+- Run locally: `uvicorn app.main:create_app --factory --reload --reload-dir app` + `npm run dev`
+  (`--reload-dir app` matters: watching `.venv` makes pip installs hang the reloader).
+  `MF_LLM_PROVIDER=mock` works without a key.
+- Outputs (layout, documents) are computed from the design by code, never written by the LLM.
 - Commits: the repo is private; author email for this repo is set locally.

@@ -4,6 +4,8 @@
 frontend (React + Vite)  ──/api──>  backend (FastAPI)
                                       ├── Designer      prompting loop, revisions
                                       │     └── LLMProvider  anthropic | openai_compatible | mock
+                                      ├── layout        design -> 3D concept layout (boxes, flow line)
+                                      ├── documents     design -> technical description (+ .docx / .md)
                                       ├── spare_parts   design -> aggregated catalog (BOM)
                                       ├── Sourcing      catalog x (your price list + connectors) -> comparison
                                       │     └── SupplierConnector  mouser | nexar | ...
@@ -19,7 +21,11 @@ Everything else is derived from it in code:
 - the spare-parts catalog (`services/spare_parts.py`), where identical part numbers across stations
   are merged;
 - the supplier comparison (`services/sourcing.py`);
-- later, the 3D layout, PLC, CAD and documents (see [output-options.md](output-options.md)).
+- the 3D concept layout (`services/layout.py`): the AI proposes station envelopes and the layout
+  style; positions are computed in code, since language models are unreliable with coordinates;
+- the technical documents (`services/documents.py`): rule-based, so they stay consistent with the
+  design and never claim compliance;
+- later, PLC and CAD (see [output-options.md](output-options.md)).
 
 Because each turn returns the full design, every revision is a complete snapshot: you can view,
 diff or restore any of them. Component and station ids are kept stable across revisions (the

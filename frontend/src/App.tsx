@@ -35,7 +35,7 @@ export default function App() {
 
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="bg-slate-900 text-white">
+      <header className="bg-slate-900 text-white print:hidden">
         <div className="mx-auto flex max-w-7xl items-center gap-6 px-4 py-3">
           <NavLink to="/" className="text-lg font-semibold tracking-tight">
             <span className="text-amber-400">⚙</span> Machine Forge
@@ -54,7 +54,7 @@ export default function App() {
         </div>
       </header>
       {status && !status.llm.ready && (
-        <div className="bg-red-50 px-4 py-2 text-center text-sm text-red-800 dark:bg-red-950 dark:text-red-200">
+        <div className="bg-red-50 px-4 py-2 text-center text-sm text-red-800 print:hidden dark:bg-red-950 dark:text-red-200">
           {status.llm.error} See README → “Configure the AI”.
         </div>
       )}

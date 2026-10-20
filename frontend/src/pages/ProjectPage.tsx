@@ -1,19 +1,25 @@
 import { useCallback, useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { api } from "../api";
 import Chat from "../components/Chat";
 import DesignView from "../components/DesignView";
+import DocumentsView from "../components/DocumentsView";
+import LayoutView from "../components/LayoutView";
 import RevisionsView from "../components/RevisionsView";
 import SparePartsView from "../components/SparePartsView";
 import type { MachineDesign, Project } from "../types";
 
-type Tab = "design" | "parts" | "revisions";
+const TABS = ["design", "layout", "parts", "docs", "revisions"] as const;
+type Tab = (typeof TABS)[number];
 
 export default function ProjectPage() {
   const { id = "" } = useParams();
   const [project, setProject] = useState<Project | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useState<Tab>("design");
+  // The open tab lives in the URL (?tab=layout) so a refresh or a shared link keeps it.
+  const [params, setParams] = useSearchParams();
+  const tab: Tab = TABS.find((t) => t === params.get("tab")) ?? "design";
+  const setTab = (t: Tab) => setParams(t === "design" ? {} : { tab: t }, { replace: true });
   // Which revision the right panel shows; null = latest.
   const [viewing, setViewing] = useState<{ number: number; design: MachineDesign } | null>(null);
   const [draft, setDraft] = useState("");
@@ -34,16 +40,18 @@ export default function ProjectPage() {
   const design = viewing?.design ?? project.design;
   const tabs: [Tab, string][] = [
     ["design", "Design"],
+    ["layout", "3D layout"],
     ["parts", "Spare parts & suppliers"],
+    ["docs", "Documents"],
     ["revisions", `Revisions (${project.latest_revision})`],
   ];
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[380px_1fr]">
+    <div className="grid gap-6 lg:grid-cols-[380px_1fr] print:block">
       <Chat project={project} onUpdated={onUpdated} draft={draft} setDraft={setDraft} />
 
       <section className="min-w-0">
-        <div className="mb-4 flex flex-wrap items-center gap-2 border-b border-slate-200 dark:border-slate-800">
+        <div className="mb-4 flex flex-wrap items-center gap-2 border-b border-slate-200 print:hidden dark:border-slate-800">
           {tabs.map(([key, label]) => (
             <button
               key={key}
@@ -66,7 +74,9 @@ export default function ProjectPage() {
         </div>
 
         {tab === "design" && <DesignView design={design} onAsk={(q) => setDraft(q)} />}
+        {tab === "layout" && <LayoutView projectId={project.id} revision={revision} design={design} />}
         {tab === "parts" && <SparePartsView projectId={project.id} revision={revision} />}
+        {tab === "docs" && <DocumentsView projectId={project.id} revision={revision} />}
         {tab === "revisions" && (
           <RevisionsView
             project={project}

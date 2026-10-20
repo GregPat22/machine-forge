@@ -29,6 +29,9 @@ export interface Station {
   sequence: number;
   function: string;
   cycle_time_s: number | null;
+  length_mm: number | null;
+  width_mm: number | null;
+  height_mm: number | null;
   components: Component[];
 }
 
@@ -39,6 +42,7 @@ export interface MachineDesign {
   product: string;
   throughput: string | null;
   footprint: string | null;
+  layout_style: "inline" | "u_shape";
   stations: Station[];
   utilities: string[];
   assumptions: string[];
@@ -153,4 +157,50 @@ export interface ConnectorStatus {
 export interface AppStatus {
   llm: { provider: string; model: string | null; ready: boolean; error: string | null };
   base_currency: string;
+}
+
+export interface LayoutBox {
+  id: string;
+  station_id: string | null;
+  label: string;
+  kind: string;
+  sequence: number | null;
+  x: number;
+  y: number;
+  z: number;
+  length: number;
+  width: number;
+  height: number;
+}
+
+export interface Layout {
+  style: "inline" | "u_shape";
+  boxes: LayoutBox[];
+  flow: [number, number, number][];
+  footprint_length_mm: number;
+  footprint_width_mm: number;
+}
+
+export interface DocTable {
+  columns: string[];
+  rows: string[][];
+}
+
+export interface DocSection {
+  id: string;
+  title: string;
+  paragraphs: string[];
+  bullets: string[];
+  table: DocTable | null;
+  note: string | null;
+}
+
+export interface TechnicalDocument {
+  title: string;
+  subtitle: string;
+  revision: number;
+  generated_at: string;
+  disclaimer: string;
+  io_summary: Record<string, number>;
+  sections: DocSection[];
 }

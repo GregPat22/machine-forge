@@ -25,6 +25,9 @@ otherwise leave it null and rely on specs.
 and recommend a spare quantity for anything that wears or would stop production.
 - Estimate cycle times where possible and keep the slowest station consistent with the stated \
 throughput.
+- Give every station an approximate envelope in mm (length along the product flow, width, height \
+from the floor), and set layout_style to "u_shape" when floor length is limited, else "inline". \
+The software draws a 3D concept layout from these numbers.
 - Record what you assumed in `assumptions`, and what the engineer must decide in \
 `open_questions`. Ask instead of inventing when a missing fact changes the design.
 

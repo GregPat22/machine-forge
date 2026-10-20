@@ -6,6 +6,8 @@ from pydantic import BaseModel, Field
 
 from app.models import Project, ProjectSummary, Revision, SourcingReport, SparePart
 from app.services.designer import Designer, ProjectNotFound
+from app.services.documents import TechnicalDocument, build_document, to_docx, to_markdown
+from app.services.layout import Layout, compute_layout
 from app.services.sourcing import Sourcing
 from app.services.spare_parts import build_catalog, catalog_csv
 
@@ -93,6 +95,37 @@ def spare_parts_csv(project_id: str, request: Request, revision: int | None = No
         content=catalog_csv(build_catalog(rev.design)),
         media_type="text/csv",
         headers={"Content-Disposition": f'attachment; filename="spare-parts-{project_id}-r{rev.number}.csv"'},
+    )
+
+
+@router.get("/projects/{project_id}/layout", response_model=Layout)
+def layout(project_id: str, request: Request, revision: int | None = None) -> Layout:
+    return compute_layout(_revision(request, project_id, revision).design)
+
+
+@router.get("/projects/{project_id}/documents", response_model=TechnicalDocument)
+def documents(project_id: str, request: Request, revision: int | None = None) -> TechnicalDocument:
+    rev = _revision(request, project_id, revision)
+    return build_document(rev.design, rev.number)
+
+
+@router.get("/projects/{project_id}/documents.md")
+def documents_markdown(project_id: str, request: Request, revision: int | None = None) -> Response:
+    rev = _revision(request, project_id, revision)
+    return Response(
+        content=to_markdown(build_document(rev.design, rev.number)),
+        media_type="text/markdown; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="technical-description-{project_id}-r{rev.number}.md"'},
+    )
+
+
+@router.get("/projects/{project_id}/documents.docx")
+def documents_docx(project_id: str, request: Request, revision: int | None = None) -> Response:
+    rev = _revision(request, project_id, revision)
+    return Response(
+        content=to_docx(build_document(rev.design, rev.number)),
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f'attachment; filename="technical-description-{project_id}-r{rev.number}.docx"'},
     )
 
 

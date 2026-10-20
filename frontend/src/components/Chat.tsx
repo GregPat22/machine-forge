@@ -14,6 +14,7 @@ const SUGGESTIONS = [
   "Increase throughput by 30%: what has to change?",
   "Replace the pneumatic actuators with servo axes where it makes sense",
   "Make it washdown-ready (IP69K) for food",
+  "Make the line U-shaped, the hall is short",
 ];
 
 export default function Chat({ project, onUpdated, draft, setDraft }: Props) {
@@ -42,7 +43,7 @@ export default function Chat({ project, onUpdated, draft, setDraft }: Props) {
   }
 
   return (
-    <aside className="card flex h-[calc(100vh-8rem)] flex-col lg:sticky lg:top-4">
+    <aside className="card flex h-[calc(100vh-8rem)] flex-col lg:sticky lg:top-4 print:hidden">
       <div className="border-b border-slate-200 px-4 py-3 dark:border-slate-800">
         <div className="truncate font-semibold">{project.name}</div>
         <div className="text-xs text-slate-500">Refine the machine by prompting</div>

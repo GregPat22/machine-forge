@@ -1,12 +1,14 @@
 import type {
   AppStatus,
   ConnectorStatus,
+  Layout,
   PriceListEntry,
   Project,
   ProjectSummary,
   Revision,
   SourcingReport,
   SparePart,
+  TechnicalDocument,
 } from "./types";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -44,6 +46,11 @@ export const api = {
   spareParts: (id: string, revision: number) =>
     request<SparePart[]>(`/projects/${id}/spare-parts?revision=${revision}`),
   sparePartsCsvUrl: (id: string, revision: number) => `/api/projects/${id}/spare-parts.csv?revision=${revision}`,
+  layout: (id: string, revision: number) => request<Layout>(`/projects/${id}/layout?revision=${revision}`),
+  documents: (id: string, revision: number) =>
+    request<TechnicalDocument>(`/projects/${id}/documents?revision=${revision}`),
+  documentUrl: (id: string, revision: number, format: "docx" | "md") =>
+    `/api/projects/${id}/documents.${format}?revision=${revision}`,
   sourcing: (id: string, revision: number, external: boolean) =>
     request<SourcingReport>(`/projects/${id}/sourcing?revision=${revision}&external=${external}`),
   priceList: () => request<PriceListEntry[]>("/price-list"),

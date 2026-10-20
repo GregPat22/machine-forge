@@ -8,9 +8,9 @@ suppliers and external vendors** to find the best offer.
 Think special-purpose machines like the ones IMA, Marchesini or Syntegon build: packaging,
 filling, assembly, inspection.
 
-> Status: **v0.1, early prototype.** The design loop, revisions, spare-parts catalog and supplier
-> comparison work end to end. What the machine output should be (3D, PLC, CAD, documents) is still
-> an open decision: see [docs/output-options.md](docs/output-options.md).
+> Status: **v0.2, prototype.** Design loop, revisions, 3D concept layout, technical documents,
+> spare-parts catalog and supplier comparison work end to end. PLC and CAD outputs are not built
+> (see [docs/output-options.md](docs/output-options.md)).
 
 ## What works today
 
@@ -20,6 +20,14 @@ filling, assembly, inspection.
   recommended spares. It also records its assumptions and open questions.
 - **Refine by prompting.** "Add vision inspection", "use Beckhoff instead of Siemens", "make it
   washdown-ready". Each prompt creates a new revision. You can view or restore any revision.
+- **3D concept layout.** The machine in 3D in the browser: stations along the product flow, cabinets
+  behind the line, guards, base frame. Click a station to see its components. Inline or U-shape
+  ("make the line U-shaped"). Positions are computed by code from the station envelopes the AI
+  proposes, so the layout stays consistent.
+- **Technical documents.** Functional description, sequence of operations with a cycle-time vs
+  throughput check, estimated I/O list with PLC sizing, recommended spare parts, a hazard
+  checklist along ISO 12100 and the safety functions to specify. Export to Word, Markdown or
+  print/PDF. They are derived from the design by rules, so they never claim compliance.
 - **Spare-parts catalog.** An aggregated BOM per revision: identical parts are merged across
   stations, with a filter for parts to stock. CSV export.
 - **Supplier comparison.** Import your own price list (Excel/CSV, English or Italian headers) and
@@ -46,7 +54,7 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
 cp .env.example .env          # then edit .env (see "Configure the AI")
-uvicorn app.main:create_app --factory --reload
+uvicorn app.main:create_app --factory --reload --reload-dir app
 ```
 
 Windows (PowerShell):
@@ -56,7 +64,7 @@ py -3 -m venv .venv
 .venv\Scripts\Activate.ps1
 pip install -e ".[dev]"
 Copy-Item .env.example .env   # then edit .env
-uvicorn app.main:create_app --factory --reload
+uvicorn app.main:create_app --factory --reload --reload-dir app
 ```
 
 ### 2. Frontend (React + Vite, port 5173)
@@ -92,7 +100,7 @@ For private / on-premise models see [docs/ai-providers.md](docs/ai-providers.md)
 ### Tests
 
 ```bash
-cd backend && pytest          # 25 tests, no network or keys needed
+cd backend && pytest          # 34 tests, no network or keys needed
 cd frontend && npm run build  # type-check + production build
 ```
 
@@ -105,14 +113,14 @@ backend/
   app/
     models.py            MachineDesign (the source of truth), catalog and sourcing types
     llm/                 provider interface, Claude, OpenAI-compatible, demo engine, prompts
-    services/            designer (prompt loop), spare_parts, price_list import, sourcing
+    services/            designer (prompt loop), layout (3D), documents, spare_parts, price_list, sourcing
     suppliers/           external connectors (Mouser, Nexar)
     api/                 HTTP endpoints
     storage.py           SQLite
   tests/
 frontend/src/
-  pages/                 Home, ProjectPage (chat + design), Suppliers
-  components/            Chat, DesignView, SparePartsView, RevisionsView
+  pages/                 Home, ProjectPage (chat + tabs), Suppliers
+  components/            Chat, DesignView, Layout3D (three.js), DocumentsView, SparePartsView, RevisionsView
 docs/                    architecture, output options, suppliers, AI providers
 examples/                sample price list
 ```
@@ -125,13 +133,17 @@ examples/                sample price list
 | 2026-10-20 | Suppliers: import your own list **and** query external vendor APIs, to compare current suppliers with other offers. |
 | 2026-10-20 | AI: external model (Claude API) for now; must support private deployment for companies (provider interface). |
 | 2026-10-20 | Stack: Python/FastAPI backend (keeps CadQuery/CAD and data tooling open), React/TypeScript frontend, SQLite. |
+| 2026-10-20 | Next phase (v0.2): 3D concept layout + technical documents, as recommended in [output-options](docs/output-options.md). Both are derived from the design in code. |
 
-**Open:** which machine outputs to build first. See [docs/output-options.md](docs/output-options.md).
-The recommendation there is a 3D layout plus specs/documents next.
+**Open:** whether and when to build the PLC skeleton and CAD export. See [docs/output-options.md](docs/output-options.md).
 
 ## Roadmap
 
-- [ ] Decide and build the first machine outputs ([options](docs/output-options.md))
+- [x] 3D concept layout (inline / U-shape) — v0.2
+- [x] Technical documents with Word export — v0.2
+- [ ] PLC skeleton from the I/O list (PackML state machine per station, PLCopen XML)
+- [ ] Company document templates (import your own .docx template)
+- [ ] 2D top-view drawing (SVG/DXF) of the layout
 - [ ] Verify the Mouser and Nexar connectors against the live APIs
 - [ ] More connectors (Digi-Key, RS, Farnell, TME) and an RFQ workflow for parts without APIs
 - [ ] Supplier rating (quality, delivery reliability) in the score

@@ -1,7 +1,7 @@
 # What should "create the machine" produce?
 
-Status: **open decision**. This document compares the four candidate outputs so we can choose
-what to build after v0.1.
+Status: **options 1 and 4 built in v0.2** (2026-10-20): 3D concept layout and technical documents.
+Options 2 (PLC) and 3 (CAD) remain open. This document compares the four candidate outputs.
 
 ## What already exists, whatever we choose
 
@@ -10,25 +10,25 @@ Every option below is a *view or export of the same machine model* (`MachineDesi
 components (category, specs, manufacturer, part number, make/buy, wear part, criticality,
 recommended spares). The AI edits that model on every prompt and keeps revisions.
 
-The prompting loop and the spare-parts catalog need that model anyway, so it is built (v0.1).
-The four options are what we add on top. None of them is built yet.
+The prompting loop and the spare-parts catalog need that model anyway, so it was built first (v0.1).
+The four options are what we add on top.
 
 ```
 problem ──> prompts ──> MachineDesign (revisions) ──┬──> spare-parts catalog ──> supplier comparison   (built)
-                                                    ├──> 1. 3D layout                                (option)
-                                                    ├──> 2. PLC control logic                        (option)
-                                                    ├──> 3. CAD export (STEP)                        (option)
-                                                    └──> 4. specs + safety documents                 (option)
+                                                    ├──> 1. 3D layout                                (built, v0.2)
+                                                    ├──> 2. PLC control logic                        (open)
+                                                    ├──> 3. CAD export (STEP)                        (open)
+                                                    └──> 4. specs + safety documents                 (built, v0.2)
 ```
 
 ## Summary
 
 | Option | Value for whom | LLM fit | Effort* | Risk | Verdict |
 |---|---|---|---|---|---|
-| 1. 3D layout | Sales, concept reviews, the "vibe" loop itself | Medium (good at structure, weak at geometry) | S–M, ~1–2 weeks | Low | **Build next** |
+| 1. 3D layout | Sales, concept reviews, the "vibe" loop itself | Medium (good at structure, weak at geometry) | S–M, ~1–2 weeks | Low | **Built (v0.2)** |
 | 2. PLC control logic | Automation engineers | Good for skeletons, weak for motion/safety | M for a skeleton, L to simulate | Medium–high | Build a skeleton after 4 |
 | 3. CAD export (STEP) | Mechanical design office | Poor without a template library | L–XL, 1–2+ months | High | Only with a parts/template library |
-| 4. Specs + safety documents | Pre-sales, project managers, validation (GMP) | Excellent (it is text) | S–M, ~1 week | Medium (compliance wording) | **Build next, with 1** |
+| 4. Specs + safety documents | Pre-sales, project managers, validation (GMP) | Excellent (it is text) | S–M, ~1 week | Medium (compliance wording) | **Built (v0.2)** |
 
 \* One developer, rough order of magnitude, on top of v0.1.
 
@@ -130,9 +130,23 @@ ISO 12100, plus the safety functions the machine likely needs. Export to DOCX/PD
 
 ---
 
+## How v0.2 implements options 1 and 4
+
+- **3D layout** (`services/layout.py`, `components/Layout3D.tsx`). The AI proposes an envelope per
+  station (length × width × height) and `layout_style` (`inline` or `u_shape`). Code computes the
+  positions: flow stations in sequence, cabinets and utilities behind the line, a guard enclosure
+  and base frame from the safety and frame stations. Stations without envelopes get defaults per
+  kind. Rendered with three.js; clicking a station shows its components.
+- **Documents** (`services/documents.py`, `components/DocumentsView.tsx`). Built by rules from the
+  design, not written by the AI: overview, functional description, sequence of operations with a
+  cycle-time vs throughput check, estimated I/O list (e.g. a cylinder = 1 valve output + 2
+  end-position inputs) with PLC sizing, recommended spares, a hazard checklist along ISO 12100
+  hazard groups, and the safety functions to specify, with "PL to be determined". Export to
+  .docx, .md, or print/PDF. They work in demo mode too.
+
 ## Recommendation
 
-1. **3D layout + specs/documents next.** They are cheap and low risk, and together they make the
+1. **3D layout + specs/documents first** (done in v0.2). They are cheap and low risk, and together they make the
    loop feel real (you see the machine and read its description after every prompt).
 2. **Then the I/O list and a PLC skeleton** (PackML state machine per station, PLCopen XML),
    explicitly without safety logic.

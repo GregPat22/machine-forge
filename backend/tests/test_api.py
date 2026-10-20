@@ -54,6 +54,25 @@ def test_spare_parts_endpoints(client: TestClient) -> None:
     assert len(report["lines"]) == len(parts)
 
 
+def test_layout_and_document_endpoints(client: TestClient) -> None:
+    pid = client.post("/api/projects", json={"problem": BLISTER_PROBLEM}).json()["id"]
+    layout = client.get(f"/api/projects/{pid}/layout").json()
+    assert layout["style"] == "inline" and layout["boxes"]
+
+    u_shape = client.post(f"/api/projects/{pid}/prompt", json={"message": "Make it U-shaped, the hall is short"})
+    assert u_shape.json()["design"]["layout_style"] == "u_shape"
+    assert client.get(f"/api/projects/{pid}/layout").json()["style"] == "u_shape"
+    assert client.get(f"/api/projects/{pid}/layout?revision=1").json()["style"] == "inline"
+
+    doc = client.get(f"/api/projects/{pid}/documents").json()
+    assert doc["revision"] == 2 and len(doc["sections"]) == 9
+    md = client.get(f"/api/projects/{pid}/documents.md")
+    assert md.headers["content-type"].startswith("text/markdown")
+    docx = client.get(f"/api/projects/{pid}/documents.docx?revision=1")
+    assert docx.content[:2] == b"PK"
+    assert "r1.docx" in docx.headers["content-disposition"]
+
+
 def test_price_list_upload_and_sourcing(client: TestClient) -> None:
     pid = client.post("/api/projects", json={"problem": BLISTER_PROBLEM}).json()["id"]
     csv_data = "Fornitore;Codice;Descrizione;Prezzo;Valuta\nRivenditore Srl;6ES7515-2AM02-0AB0;CPU 1515-2 PN;2.150,00;EUR\n"
