@@ -69,6 +69,20 @@ machine shops):
 5. **Current** = your best-scoring internal offer. **Best** = the best-scoring offer overall.
    **Savings** = (current − best unit price) × quantity in the machine.
 
-Not yet considered: quantity price breaks beyond the first one, shipping and customs, supplier
-quality/rating, payment terms, framework agreements. A supplier rating table is a natural next
-step.
+6. **Your ratings** (Suppliers page): quality and delivery reliability, 1–5 stars each, weighted
+   by `MF_WEIGHT_RATING` (0.15). Unrated suppliers count as 3 stars. Preferred suppliers win ties.
+
+Not yet considered: quantity price breaks beyond the first one, shipping and customs, payment
+terms, framework agreements.
+
+## 4. Requests for quotation (RFQ)
+
+**Spare parts & suppliers → Request quotes (Excel)** builds one workbook for the revision:
+- one sheet per current supplier (from your price list), with the parts you buy from them;
+- an **Open market** sheet for parts without a supplier, to send to any vendor;
+- quantities = machine quantity + recommended spares; prices are never included;
+- yellow columns for the supplier to fill in: unit price, lead time, MOQ, notes.
+
+Import the answered workbook on the Suppliers page (tick **Append** to keep your list). Every
+sheet is read; on RFQ sheets (recognised by the *Quantity requested* column) only rows with a price
+are imported.

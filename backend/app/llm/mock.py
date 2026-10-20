@@ -11,7 +11,7 @@ import json
 import re
 from typing import Any
 
-from app.llm.base import LLMError, T, Turn
+from app.llm.base import LLMError, ProgressFn, T, Turn, progress_from_text
 from app.models import Component, DesignUpdate, MachineDesign, Spec, Station
 
 
@@ -291,16 +291,26 @@ class MockProvider:
     name = "mock"
     model = "demo-engine"
 
-    def structured(self, *, system: str, turns: list[Turn], output: type[T]) -> T:
+    def structured(
+        self, *, system: str, turns: list[Turn], output: type[T], on_progress: ProgressFn | None = None
+    ) -> T:
         if output is not DesignUpdate:
             raise LLMError("The demo engine only produces machine designs.")
+        if on_progress:
+            on_progress(progress_from_text("thinking", "", "Demo engine: matching the request to a template"))
+        result = self._answer(turns)
+        if on_progress:
+            on_progress(progress_from_text("writing", result.model_dump_json()))
+        return result  # type: ignore[return-value]
+
+    def _answer(self, turns: list[Turn]) -> DesignUpdate:
         last = turns[-1]["content"]
         current = re.search(r"<current_design>\n(.*)\n</current_design>", last, re.S)
         if current:
             request = re.search(r"<request>\n(.*)\n</request>", last, re.S)
             design = MachineDesign.model_validate(json.loads(current.group(1)))
-            return _refine(design, request.group(1) if request else "")  # type: ignore[return-value]
+            return _refine(design, request.group(1) if request else "")
         problem = re.search(r"<problem>\n(.*)\n</problem>", last, re.S)
         design = _initial_design(problem.group(1) if problem else last)
         reply = f"Demo design: {len(design.stations)} stations. Set up an AI provider for real designs."
-        return DesignUpdate(reply=reply, design=design)  # type: ignore[return-value]
+        return DesignUpdate(reply=reply, design=design)

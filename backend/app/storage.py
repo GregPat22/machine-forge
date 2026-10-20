@@ -15,6 +15,8 @@ from app.models import (
     Offer,
     PriceListEntry,
     Project,
+    SupplierInfo,
+    SupplierRating,
     ProjectSummary,
     Revision,
 )
@@ -55,6 +57,13 @@ CREATE TABLE IF NOT EXISTS price_list (
     lead_time_days INTEGER,
     moq INTEGER,
     source_file TEXT
+);
+CREATE TABLE IF NOT EXISTS supplier_ratings (
+    name TEXT PRIMARY KEY COLLATE NOCASE,
+    quality INTEGER,
+    delivery INTEGER,
+    preferred INTEGER NOT NULL DEFAULT 0,
+    notes TEXT
 );
 CREATE TABLE IF NOT EXISTS offer_cache (
     connector TEXT NOT NULL,
@@ -206,6 +215,41 @@ class Storage:
     def price_list(self) -> list[PriceListEntry]:
         rows = self._conn.execute("SELECT * FROM price_list ORDER BY supplier, part_number").fetchall()
         return [PriceListEntry(**dict(row)) for row in rows]
+
+    # --- supplier ratings -----------------------------------------------------------------
+
+    def set_rating(self, rating: SupplierRating) -> None:
+        with self._lock, self._conn:
+            self._conn.execute(
+                """INSERT INTO supplier_ratings (name, quality, delivery, preferred, notes) VALUES (?, ?, ?, ?, ?)
+                   ON CONFLICT(name) DO UPDATE SET quality = excluded.quality, delivery = excluded.delivery,
+                   preferred = excluded.preferred, notes = excluded.notes""",
+                (rating.name.strip(), rating.quality, rating.delivery, int(rating.preferred), rating.notes),
+            )
+
+    def ratings(self) -> dict[str, SupplierRating]:
+        """Ratings keyed by lower-case supplier name."""
+        rows = self._conn.execute("SELECT * FROM supplier_ratings").fetchall()
+        return {
+            row["name"].lower(): SupplierRating(name=row["name"], quality=row["quality"], delivery=row["delivery"],
+                                                preferred=bool(row["preferred"]), notes=row["notes"])
+            for row in rows
+        }
+
+    def suppliers(self) -> list[SupplierInfo]:
+        """Every supplier in the price list or the ratings, with its rating and item count."""
+        counts = {
+            row["supplier"].lower(): (row["supplier"], row["n"])
+            for row in self._conn.execute("SELECT supplier, COUNT(*) AS n FROM price_list GROUP BY supplier COLLATE NOCASE")
+        }
+        ratings = self.ratings()
+        names = {key: counts[key][0] if key in counts else ratings[key].name for key in {*counts, *ratings}}
+        out = []
+        for key, name in names.items():
+            rating = ratings.get(key) or SupplierRating(name=name)
+            out.append(SupplierInfo(**{**rating.model_dump(), "name": name},
+                                    price_list_items=counts.get(key, (name, 0))[1]))
+        return sorted(out, key=lambda s: s.name.lower())
 
     # --- external offer cache -------------------------------------------------------------
 

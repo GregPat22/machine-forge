@@ -5,11 +5,12 @@ import Chat from "../components/Chat";
 import DesignView from "../components/DesignView";
 import DocumentsView from "../components/DocumentsView";
 import LayoutView from "../components/LayoutView";
+import PlcView from "../components/PlcView";
 import RevisionsView from "../components/RevisionsView";
 import SparePartsView from "../components/SparePartsView";
 import type { MachineDesign, Project } from "../types";
 
-const TABS = ["design", "layout", "parts", "docs", "revisions"] as const;
+const TABS = ["design", "layout", "parts", "docs", "plc", "revisions"] as const;
 type Tab = (typeof TABS)[number];
 
 export default function ProjectPage() {
@@ -43,6 +44,7 @@ export default function ProjectPage() {
     ["layout", "3D layout"],
     ["parts", "Spare parts & suppliers"],
     ["docs", "Documents"],
+    ["plc", "PLC"],
     ["revisions", `Revisions (${project.latest_revision})`],
   ];
 
@@ -77,6 +79,7 @@ export default function ProjectPage() {
         {tab === "layout" && <LayoutView projectId={project.id} revision={revision} design={design} />}
         {tab === "parts" && <SparePartsView projectId={project.id} revision={revision} />}
         {tab === "docs" && <DocumentsView projectId={project.id} revision={revision} />}
+        {tab === "plc" && <PlcView projectId={project.id} revision={revision} />}
         {tab === "revisions" && (
           <RevisionsView
             project={project}

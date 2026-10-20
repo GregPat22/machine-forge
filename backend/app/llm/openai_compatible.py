@@ -12,7 +12,7 @@ import json
 import httpx
 from pydantic import ValidationError
 
-from app.llm.base import LLMError, T, Turn
+from app.llm.base import LLMError, ProgressFn, T, Turn, progress_from_text
 from app.schema import strict_schema
 
 
@@ -33,7 +33,11 @@ class OpenAICompatibleProvider:
             base_url=base_url.rstrip("/"), headers=headers, timeout=timeout_s, transport=transport
         )
 
-    def structured(self, *, system: str, turns: list[Turn], output: type[T]) -> T:
+    def structured(
+        self, *, system: str, turns: list[Turn], output: type[T], on_progress: ProgressFn | None = None
+    ) -> T:
+        if on_progress:
+            on_progress(progress_from_text("waiting", ""))  # this endpoint is called without streaming
         schema = strict_schema(output)
         messages = [{"role": "system", "content": system}, *turns]
         last_error = ""

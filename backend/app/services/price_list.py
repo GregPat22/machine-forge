@@ -84,27 +84,18 @@ def _rows_from_csv(data: bytes) -> list[list[object]]:
     return [list(row) for row in csv.reader(io.StringIO(text), dialect)]
 
 
-def _rows_from_xlsx(data: bytes) -> list[list[object]]:
+def _sheets_from_xlsx(data: bytes) -> list[tuple[str, list[list[object]]]]:
     from openpyxl import load_workbook
 
     workbook = load_workbook(io.BytesIO(data), read_only=True, data_only=True)
-    sheet = workbook.worksheets[0]
-    return [list(row) for row in sheet.iter_rows(values_only=True)]
+    return [(ws.title, [list(row) for row in ws.iter_rows(values_only=True)]) for ws in workbook.worksheets]
 
 
-def parse_price_list(filename: str, data: bytes, default_currency: str = "EUR") -> list[PriceListEntry]:
-    lower = filename.lower()
-    if lower.endswith((".xlsx", ".xlsm")):
-        rows = _rows_from_xlsx(data)
-    elif lower.endswith((".csv", ".txt")):
-        rows = _rows_from_csv(data)
-    else:
-        raise PriceListError("Upload a .csv or .xlsx file.")
-
-    rows = [r for r in rows if any(_text(c) for c in r)]
-    if len(rows) < 2:
-        raise PriceListError("The file has no data rows.")
-    mapping = _map_columns([str(h) if h is not None else "" for h in rows[0]])
+def _parse_rows(rows: list[list[object]], filename: str, default_currency: str) -> list[PriceListEntry]:
+    headers = [str(h) if h is not None else "" for h in rows[0]]
+    mapping = _map_columns(headers)
+    # Answered RFQ workbooks (see services/rfq.py) list every requested part: keep only quoted rows.
+    is_rfq = "quantity requested" in [_norm(h) for h in headers]
 
     def cell(row: list[object], field: str) -> object:
         idx = mapping.get(field)
@@ -115,7 +106,8 @@ def parse_price_list(filename: str, data: bytes, default_currency: str = "EUR") 
         supplier = _text(cell(row, "supplier"))
         part_number = _text(cell(row, "part_number"))
         description = _text(cell(row, "description"))
-        if not supplier or not (part_number or description):
+        price = _number(cell(row, "unit_price"))
+        if not supplier or not (part_number or description) or (is_rfq and price is None):
             continue
         lead = _number(cell(row, "lead_time_days"))
         moq = _number(cell(row, "moq"))
@@ -125,13 +117,41 @@ def parse_price_list(filename: str, data: bytes, default_currency: str = "EUR") 
                 manufacturer=_text(cell(row, "manufacturer")),
                 part_number=part_number,
                 description=description,
-                unit_price=_number(cell(row, "unit_price")),
+                unit_price=price,
                 currency=(_text(cell(row, "currency")) or default_currency).upper(),
                 lead_time_days=int(lead) if lead is not None else None,
                 moq=int(moq) if moq is not None else None,
                 source_file=filename,
             )
         )
+    return entries
+
+
+def parse_price_list(filename: str, data: bytes, default_currency: str = "EUR") -> list[PriceListEntry]:
+    """Every sheet of an Excel file is read; sheets without a supplier column are skipped."""
+    lower = filename.lower()
+    if lower.endswith((".xlsx", ".xlsm")):
+        sheets = _sheets_from_xlsx(data)
+    elif lower.endswith((".csv", ".txt")):
+        sheets = [("csv", _rows_from_csv(data))]
+    else:
+        raise PriceListError("Upload a .csv or .xlsx file.")
+
+    entries: list[PriceListEntry] = []
+    first_error: PriceListError | None = None
+    usable_sheets = 0
+    for _title, rows in sheets:
+        rows = [r for r in rows if any(_text(c) for c in r)]
+        if len(rows) < 2:
+            continue
+        try:
+            entries += _parse_rows(rows, filename, default_currency)
+            usable_sheets += 1
+        except PriceListError as exc:
+            first_error = first_error or exc
+    if not usable_sheets:
+        raise first_error or PriceListError("The file has no data rows.")
     if not entries:
-        raise PriceListError("No usable rows: each row needs a supplier and a part number or description.")
+        raise PriceListError("No usable rows: each row needs a supplier and a part number or description "
+                             "(and a price, for answered RFQ sheets).")
     return entries

@@ -1,17 +1,34 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import Response
+import json
+import logging
+import queue
+import threading
+from typing import Callable
+
+from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, Field
 
+from app.api.suppliers import TEMPLATE_NAME
+from app.llm import LLMError, LLMNotConfigured
+from app.llm.base import Progress, ProgressFn
 from app.models import Project, ProjectSummary, Revision, SourcingReport, SparePart
 from app.services.designer import Designer, ProjectNotFound
+from app.services.diff import DesignDiff, diff_designs
 from app.services.documents import TechnicalDocument, build_document, to_docx, to_markdown
+from app.services.drawing import to_dxf, to_svg
 from app.services.layout import Layout, compute_layout
+from app.services.plc import PlcProject, to_plcopen_xml
+from app.services.plc import generate as generate_plc
+from app.services.plc import to_zip as plc_to_zip
+from app.services.rfq import build_rfq
 from app.services.sourcing import Sourcing
 from app.services.spare_parts import build_catalog, catalog_csv
 
 router = APIRouter(tags=["projects"])
+log = logging.getLogger(__name__)
+KEEPALIVE_S = 15
 
 
 class NewProject(BaseModel):
@@ -51,6 +68,61 @@ def list_projects(request: Request) -> list[ProjectSummary]:
 @router.post("/projects", response_model=Project, status_code=201)
 def create_project(body: NewProject, request: Request) -> Project:
     return _designer(request).create(body.problem.strip())
+
+
+def _event_stream(run: Callable[[ProgressFn], Project]) -> StreamingResponse:
+    """Run a design call in a thread and stream its progress as server-sent events.
+
+    Events: `progress` (Progress), then exactly one of `done` (Project) or `error` ({status, detail}).
+    """
+    events: queue.Queue[tuple[str, object]] = queue.Queue()
+
+    def on_progress(progress: Progress) -> None:
+        events.put(("progress", progress))
+
+    def worker() -> None:
+        try:
+            events.put(("done", run(on_progress).model_dump(mode="json")))
+        except LLMNotConfigured as exc:
+            events.put(("error", {"status": 503, "detail": str(exc)}))
+        except LLMError as exc:
+            events.put(("error", {"status": 502, "detail": str(exc)}))
+        except ProjectNotFound as exc:
+            events.put(("error", {"status": 404, "detail": str(exc)}))
+        except Exception:  # never leave the client waiting on a dead stream
+            log.exception("design call failed")
+            events.put(("error", {"status": 500, "detail": "Unexpected server error, see the backend log."}))
+
+    threading.Thread(target=worker, daemon=True).start()
+
+    def stream():
+        while True:
+            try:
+                kind, payload = events.get(timeout=KEEPALIVE_S)
+            except queue.Empty:
+                yield ": keep-alive\n\n"
+                continue
+            yield f"event: {kind}\ndata: {json.dumps(payload)}\n\n"
+            if kind in ("done", "error"):
+                return
+
+    return StreamingResponse(stream(), media_type="text/event-stream",
+                             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
+@router.post("/projects/stream")
+def create_project_stream(body: NewProject, request: Request) -> StreamingResponse:
+    designer = _designer(request)  # raises 503 before streaming if no AI is configured
+    problem = body.problem.strip()
+    return _event_stream(lambda progress: designer.create(problem, on_progress=progress))
+
+
+@router.post("/projects/{project_id}/prompt/stream")
+def prompt_stream(project_id: str, body: PromptIn, request: Request) -> StreamingResponse:
+    designer = _designer(request)
+    designer._get(project_id)  # 404 before streaming
+    message = body.message.strip()
+    return _event_stream(lambda progress: designer.refine(project_id, message, on_progress=progress))
 
 
 @router.get("/projects/{project_id}", response_model=Project)
@@ -103,6 +175,55 @@ def layout(project_id: str, request: Request, revision: int | None = None) -> La
     return compute_layout(_revision(request, project_id, revision).design)
 
 
+@router.get("/projects/{project_id}/layout.svg")
+def layout_svg(project_id: str, request: Request, revision: int | None = None) -> Response:
+    rev = _revision(request, project_id, revision)
+    return Response(content=to_svg(compute_layout(rev.design), rev.design, rev.number), media_type="image/svg+xml")
+
+
+@router.get("/projects/{project_id}/layout.dxf")
+def layout_dxf(project_id: str, request: Request, revision: int | None = None) -> Response:
+    rev = _revision(request, project_id, revision)
+    return Response(
+        content=to_dxf(compute_layout(rev.design), rev.design, rev.number),
+        media_type="application/dxf",
+        headers={"Content-Disposition": f'attachment; filename="layout-{project_id}-r{rev.number}.dxf"'},
+    )
+
+
+@router.get("/projects/{project_id}/diff", response_model=DesignDiff)
+def diff(project_id: str, request: Request, to: int | None = None, from_: int | None = Query(None, alias="from")) -> DesignDiff:
+    after = _revision(request, project_id, to)
+    before = _revision(request, project_id, from_ if from_ is not None else max(after.number - 1, 1))
+    return diff_designs(before.design, after.design, before.number, after.number)
+
+
+@router.get("/projects/{project_id}/plc", response_model=PlcProject)
+def plc(project_id: str, request: Request, revision: int | None = None) -> PlcProject:
+    rev = _revision(request, project_id, revision)
+    return generate_plc(rev.design, rev.number)
+
+
+@router.get("/projects/{project_id}/plc.zip")
+def plc_zip(project_id: str, request: Request, revision: int | None = None) -> Response:
+    rev = _revision(request, project_id, revision)
+    return Response(
+        content=plc_to_zip(generate_plc(rev.design, rev.number), rev.design),
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="plc-{project_id}-r{rev.number}.zip"'},
+    )
+
+
+@router.get("/projects/{project_id}/plc.xml")
+def plc_xml(project_id: str, request: Request, revision: int | None = None) -> Response:
+    rev = _revision(request, project_id, revision)
+    return Response(
+        content=to_plcopen_xml(rev.design, f"{rev.design.name} (revision {rev.number})"),
+        media_type="application/xml",
+        headers={"Content-Disposition": f'attachment; filename="plcopen-{project_id}-r{rev.number}.xml"'},
+    )
+
+
 @router.get("/projects/{project_id}/documents", response_model=TechnicalDocument)
 def documents(project_id: str, request: Request, revision: int | None = None) -> TechnicalDocument:
     rev = _revision(request, project_id, revision)
@@ -122,10 +243,22 @@ def documents_markdown(project_id: str, request: Request, revision: int | None =
 @router.get("/projects/{project_id}/documents.docx")
 def documents_docx(project_id: str, request: Request, revision: int | None = None) -> Response:
     rev = _revision(request, project_id, revision)
+    template = request.app.state.mf.settings.template_dir / TEMPLATE_NAME
     return Response(
-        content=to_docx(build_document(rev.design, rev.number)),
+        content=to_docx(build_document(rev.design, rev.number), template),
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         headers={"Content-Disposition": f'attachment; filename="technical-description-{project_id}-r{rev.number}.docx"'},
+    )
+
+
+@router.get("/projects/{project_id}/rfq.xlsx")
+def rfq(project_id: str, request: Request, revision: int | None = None) -> Response:
+    state = request.app.state.mf
+    rev = _revision(request, project_id, revision)
+    return Response(
+        content=build_rfq(rev.design, rev.number, state.storage, state.settings.base_currency),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="rfq-{project_id}-r{rev.number}.xlsx"'},
     )
 
 

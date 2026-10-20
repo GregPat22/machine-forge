@@ -110,6 +110,8 @@ export interface Offer {
   url: string | null;
   match: "exact" | "similar";
   is_current: boolean;
+  rating: number | null;
+  preferred: boolean;
   score: number | null;
 }
 
@@ -203,4 +205,57 @@ export interface TechnicalDocument {
   disclaimer: string;
   io_summary: Record<string, number>;
   sections: DocSection[];
+}
+
+export interface FieldChange {
+  field: string;
+  before: string | null;
+  after: string | null;
+}
+
+export interface DesignDiff {
+  from_revision: number;
+  to_revision: number;
+  machine: FieldChange[];
+  lists: { field: string; added: string[]; removed: string[] }[];
+  stations: { station_id: string; name: string; change: "added" | "removed" | "modified"; fields: FieldChange[] }[];
+  components: {
+    component_id: string;
+    name: string;
+    station: string;
+    change: "added" | "removed" | "modified";
+    fields: FieldChange[];
+  }[];
+  counts: Record<string, number>;
+}
+
+export interface PlcProject {
+  name: string;
+  files: { name: string; content: string }[];
+  io_counts: Record<string, number>;
+  axes: string[];
+  warnings: string[];
+}
+
+export interface SupplierInfo {
+  name: string;
+  quality: number | null;
+  delivery: number | null;
+  preferred: boolean;
+  notes: string | null;
+  price_list_items: number;
+}
+
+export interface Progress {
+  phase: "waiting" | "thinking" | "writing";
+  chars: number;
+  stations: number;
+  components: number;
+  note: string | null;
+}
+
+export interface TemplateStatus {
+  exists: boolean;
+  size?: number;
+  uploaded_at?: string;
 }

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from app.llm import LLMProvider, Turn
+from app.llm.base import ProgressFn
 from app.llm.prompts import SYSTEM_PROMPT, first_turn, refine_turn
 from app.models import DesignUpdate, Project
 from app.storage import Storage
@@ -20,16 +21,17 @@ class Designer:
         self.storage = storage
         self.provider = provider
 
-    def create(self, problem: str) -> Project:
+    def create(self, problem: str, on_progress: ProgressFn | None = None) -> Project:
         update = self.provider.structured(
             system=SYSTEM_PROMPT,
             turns=[{"role": "user", "content": first_turn(problem)}],
             output=DesignUpdate,
+            on_progress=on_progress,
         )
         project_id = self.storage.create_project(problem, update.reply, update.design)
         return self._get(project_id)
 
-    def refine(self, project_id: str, request: str) -> Project:
+    def refine(self, project_id: str, request: str, on_progress: ProgressFn | None = None) -> Project:
         project = self._get(project_id)
         history: list[Turn] = [
             {"role": m.role, "content": m.content} for m in project.messages[-HISTORY_TURNS:]
@@ -41,7 +43,9 @@ class Designer:
             *history,
             {"role": "user", "content": refine_turn(project.design.model_dump_json(indent=1), request)},
         ]
-        update = self.provider.structured(system=SYSTEM_PROMPT, turns=turns, output=DesignUpdate)
+        update = self.provider.structured(
+            system=SYSTEM_PROMPT, turns=turns, output=DesignUpdate, on_progress=on_progress
+        )
         self.storage.add_revision(project_id, request, update.reply, update.design)
         return self._get(project_id)
 

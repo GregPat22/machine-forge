@@ -4,8 +4,12 @@
 frontend (React + Vite)  ──/api──>  backend (FastAPI)
                                       ├── Designer      prompting loop, revisions
                                       │     └── LLMProvider  anthropic | openai_compatible | mock
-                                      ├── layout        design -> 3D concept layout (boxes, flow line)
-                                      ├── documents     design -> technical description (+ .docx / .md)
+                                      ├── diff          revision a vs b -> stations/components changed
+                                      ├── layout        design -> layout (boxes, flow line) -> drawing (SVG/DXF)
+                                      ├── documents     design -> technical description (+ .docx / .md, company template)
+                                      ├── io_points     design -> estimated I/O points (documents, PLC)
+                                      ├── plc           design -> Structured Text + PLCopen XML
+                                      ├── rfq           catalog x price list -> RFQ workbook
                                       ├── spare_parts   design -> aggregated catalog (BOM)
                                       ├── Sourcing      catalog x (your price list + connectors) -> comparison
                                       │     └── SupplierConnector  mouser | nexar | ...
@@ -35,6 +39,22 @@ The model avoids JSON-schema features that strict structured-output modes reject
 numeric bounds, recursion). Specs are a list of `{name, value}` pairs for that reason.
 `app/schema.py` tightens the Pydantic schema (all properties required, `additionalProperties:
 false`) so the same schema works with Claude structured outputs and OpenAI-style strict mode.
+
+## Live progress
+
+`POST /api/projects/stream` and `POST /api/projects/{id}/prompt/stream` return server-sent events:
+`progress` (phase `waiting` / `thinking` / `writing`, characters, stations and components written so
+far, the latest line of the model's thinking summary), then one `done` (the project) or `error`.
+The design call runs in a worker thread; the Claude provider reports from the stream deltas. The
+frontend reads the stream with `fetch` (`streamDesign` in `src/api.ts`).
+
+## Realistic render
+
+`frontend/src/render/`: `materials.ts` (brushed-steel and other PBR materials, the HMI screen
+texture), `parts.ts` (one procedural model per component category, plus generic plate hardware),
+`machine.ts` (station modules, conveyors, cabinets, HMI, stack light, products, using the layout
+from the backend). `components/MachineRender.tsx` sets up the studio: environment lighting, a shadow-casting
+key light, a mirror floor under a fade layer, orbit controls and picking.
 
 ## The prompting loop
 

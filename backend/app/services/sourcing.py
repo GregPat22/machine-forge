@@ -6,7 +6,15 @@ import re
 from concurrent.futures import ThreadPoolExecutor
 
 from app.config import Settings
-from app.models import MachineDesign, Offer, PriceListEntry, SourcingLine, SourcingReport, SparePart
+from app.models import (
+    MachineDesign,
+    Offer,
+    PriceListEntry,
+    SourcingLine,
+    SourcingReport,
+    SparePart,
+    SupplierRating,
+)
 from app.services.spare_parts import build_catalog, normalize_pn
 from app.storage import Storage
 from app.suppliers import ConnectorError, SupplierConnector
@@ -63,6 +71,7 @@ class Sourcing:
     def report(self, project_id: str, revision: int, design: MachineDesign, external: bool) -> SourcingReport:
         parts = build_catalog(design)
         price_list = self.storage.price_list()
+        ratings = self.storage.ratings()
         to_buy = [p for p in parts if p.make_or_buy == "buy"]
         external_offers, errors = self._external(to_buy) if external else ({}, [])
 
@@ -73,7 +82,7 @@ class Sourcing:
                                           note="Custom part: quote it with your machine shops."))
                 continue
             offers = internal_offers(part, price_list) + external_offers.get(part.key, [])
-            lines.append(self._line(part, offers))
+            lines.append(self._line(part, offers, ratings))
 
         def total(attr: str) -> float | None:
             values = [
@@ -138,10 +147,15 @@ class Sourcing:
         rate = self.settings.fx_rates.get(code)
         return round(price * rate, 4) if rate is not None else None
 
-    def _line(self, part: SparePart, offers: list[Offer]) -> SourcingLine:
+    def _line(self, part: SparePart, offers: list[Offer], ratings: dict[str, SupplierRating]) -> SourcingLine:
         needed = part.quantity_in_machine + part.recommended_spares
         for offer in offers:
             offer.unit_price_base = self._to_base(offer.unit_price, offer.currency)
+            rating = ratings.get(offer.supplier.lower())
+            if rating:
+                stars = [x for x in (rating.quality, rating.delivery) if x]
+                offer.rating = round(sum(stars) / len(stars), 1) if stars else None
+                offer.preferred = rating.preferred
 
         priced = [o for o in offers if o.unit_price_base is not None and o.unit_price_base > 0]
         if priced:
@@ -155,7 +169,7 @@ class Sourcing:
             leads = [lt for o in priced if (lt := lead(o)) is not None]
             min_lead = max(min(leads), 1) if leads else None
             s = self.settings
-            weight_sum = s.weight_price + s.weight_lead_time + s.weight_availability or 1.0
+            weight_sum = s.weight_price + s.weight_lead_time + s.weight_availability + s.weight_rating or 1.0
             for o in priced:
                 price_score = min_price / o.unit_price_base  # type: ignore[operator]
                 lt = lead(o)
@@ -166,13 +180,16 @@ class Sourcing:
                     avail_score = 1.0
                 else:
                     avail_score = 0.5 if o.stock > 0 else 0.0
+                # Unrated suppliers count as average (3 of 5 stars).
+                rating_score = (o.rating - 1) / 4 if o.rating is not None else 0.5
                 score = (s.weight_price * price_score + s.weight_lead_time * lead_score
-                         + s.weight_availability * avail_score) / weight_sum
+                         + s.weight_availability * avail_score + s.weight_rating * rating_score) / weight_sum
                 if o.match == "similar":
                     score *= SIMILAR_MATCH_PENALTY
                 o.score = round(score, 3)
 
-        offers.sort(key=lambda o: o.score if o.score is not None else -1, reverse=True)
+        # Preferred suppliers win ties.
+        offers.sort(key=lambda o: (o.score if o.score is not None else -1, o.preferred), reverse=True)
         current_offers = [o for o in offers if o.is_current]
         current = current_offers[0] if current_offers else None
         best = offers[0] if offers and offers[0].score is not None else None

@@ -60,6 +60,10 @@ class Settings:
     weight_price: float = 0.5
     weight_lead_time: float = 0.3
     weight_availability: float = 0.2
+    weight_rating: float = 0.15
+
+    # Company .docx template for the technical documents.
+    template_dir: Path = BACKEND_DIR / "data" / "templates"
 
     cors_origins: tuple[str, ...] = ("http://localhost:5173",)
 
@@ -88,6 +92,8 @@ def load_settings() -> Settings:
         weight_price=float(env("MF_WEIGHT_PRICE", "0.5")),
         weight_lead_time=float(env("MF_WEIGHT_LEAD_TIME", "0.3")),
         weight_availability=float(env("MF_WEIGHT_AVAILABILITY", "0.2")),
+        weight_rating=float(env("MF_WEIGHT_RATING", "0.15")),
+        template_dir=Path(env("MF_TEMPLATE_DIR", str(BACKEND_DIR / "data" / "templates"))),
         cors_origins=tuple(
             o.strip() for o in env("MF_CORS_ORIGINS", "http://localhost:5173").split(",") if o.strip()
         ),

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { api } from "../api";
-import type { ProjectSummary } from "../types";
+import { api, progressText } from "../api";
+import type { Progress, ProjectSummary } from "../types";
 
 const EXAMPLES = [
   "Pack 300 tablets per minute into PVC/Alu blisters of 10, for a pharmaceutical customer (GMP).",
@@ -15,6 +15,7 @@ export default function Home() {
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [progress, setProgress] = useState<Progress | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -24,8 +25,9 @@ export default function Home() {
   async function create() {
     setBusy(true);
     setError(null);
+    setProgress(null);
     try {
-      const project = await api.createProject(problem);
+      const project = await api.createProject(problem, setProgress);
       navigate(`/projects/${project.id}`);
     } catch (e) {
       setError((e as Error).message);
@@ -68,7 +70,7 @@ export default function Home() {
           <button className="btn-primary" disabled={busy || problem.trim().length < 10} onClick={create}>
             {busy ? "Designing the machine…" : "Design the machine"}
           </button>
-          {busy && <span className="text-xs text-slate-500">This can take a minute or two.</span>}
+          {busy && <span className="text-xs text-slate-500 italic">{progressText(progress)}</span>}
         </div>
         {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
       </section>

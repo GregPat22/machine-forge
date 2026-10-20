@@ -35,6 +35,8 @@ function OffersTable({ line, currency }: { line: SourcingLine; currency: string 
                 o.supplier
               )}
               {o.is_current && <span className="ml-1 rounded bg-sky-100 px-1 text-[11px] text-sky-800">your list</span>}
+              {o.preferred && <span className="ml-1 rounded bg-emerald-100 px-1 text-[11px] text-emerald-800">preferred</span>}
+              {o.rating !== null && <span className="ml-1 text-[11px] text-amber-600">{"★".repeat(Math.round(o.rating))}</span>}
             </td>
             <td className="td text-xs">{o.source}</td>
             <td className="td text-xs">
@@ -99,6 +101,13 @@ export default function SparePartsView({ projectId, revision }: { projectId: str
         </button>
         <a className="btn-secondary" href={api.sparePartsCsvUrl(projectId, revision)}>
           Download CSV
+        </a>
+        <a
+          className="btn-secondary"
+          href={api.rfqUrl(projectId, revision)}
+          title="Excel with one sheet per supplier. Send it, then import the answers on the Suppliers page."
+        >
+          Request quotes (Excel)
         </a>
         <label className="ml-auto flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
           <input type="checkbox" checked={onlySpares} onChange={(e) => setOnlySpares(e.target.checked)} />

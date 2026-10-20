@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { api } from "../api";
-import type { Project } from "../types";
+import { api, progressText } from "../api";
+import type { Progress, Project } from "../types";
 
 interface Props {
   project: Project;
@@ -20,20 +20,22 @@ const SUGGESTIONS = [
 export default function Chat({ project, onUpdated, draft, setDraft }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [progress, setProgress] = useState<Progress | null>(null);
   const list = useRef<HTMLDivElement>(null);
 
   // Scroll only the message list, never the page.
   useEffect(() => {
     if (list.current) list.current.scrollTop = list.current.scrollHeight;
-  }, [project.messages.length, busy]);
+  }, [project.messages.length, busy, progress]);
 
   async function send() {
     const message = draft.trim();
     if (!message) return;
     setBusy(true);
     setError(null);
+    setProgress(null);
     try {
-      onUpdated(await api.prompt(project.id, message));
+      onUpdated(await api.prompt(project.id, message, setProgress));
       setDraft("");
     } catch (e) {
       setError((e as Error).message);
@@ -62,7 +64,19 @@ export default function Chat({ project, onUpdated, draft, setDraft }: Props) {
             </div>
           </div>
         ))}
-        {busy && <div className="text-sm text-slate-500 italic">Updating the design…</div>}
+        {busy && (
+          <div className="flex justify-end">
+            <div className="max-w-[90%] rounded-lg bg-amber-100 px-3 py-2 text-sm whitespace-pre-wrap dark:bg-amber-900/40">
+              {draft}
+            </div>
+          </div>
+        )}
+        {busy && (
+          <div className="flex items-start gap-2 text-sm text-slate-500">
+            <span className="mt-1.5 h-2 w-2 shrink-0 animate-pulse rounded-full bg-amber-500" />
+            <span className="italic">{progressText(progress)}</span>
+          </div>
+        )}
       </div>
 
       <div className="border-t border-slate-200 p-3 dark:border-slate-800">
@@ -81,6 +95,7 @@ export default function Chat({ project, onUpdated, draft, setDraft }: Props) {
           className="input min-h-20"
           placeholder="e.g. Use Beckhoff instead of Siemens for the control system"
           value={draft}
+          disabled={busy}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) send();

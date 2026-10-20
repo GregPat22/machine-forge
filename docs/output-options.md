@@ -1,7 +1,8 @@
 # What should "create the machine" produce?
 
-Status: **options 1 and 4 built in v0.2** (2026-10-20): 3D concept layout and technical documents.
-Options 2 (PLC) and 3 (CAD) remain open. This document compares the four candidate outputs.
+Status: **options 1, 2 and 4 built** (2026-10-20): 3D layout (concept and realistic) and documents
+in v0.2–v0.3, a PLC skeleton in v0.3. Option 3 (CAD) remains open. This document compares the four
+candidate outputs.
 
 ## What already exists, whatever we choose
 
@@ -16,7 +17,7 @@ The four options are what we add on top.
 ```
 problem ──> prompts ──> MachineDesign (revisions) ──┬──> spare-parts catalog ──> supplier comparison   (built)
                                                     ├──> 1. 3D layout                                (built, v0.2)
-                                                    ├──> 2. PLC control logic                        (open)
+                                                    ├──> 2. PLC control logic                        (skeleton, v0.3)
                                                     ├──> 3. CAD export (STEP)                        (open)
                                                     └──> 4. specs + safety documents                 (built, v0.2)
 ```
@@ -26,7 +27,7 @@ problem ──> prompts ──> MachineDesign (revisions) ──┬──> spare
 | Option | Value for whom | LLM fit | Effort* | Risk | Verdict |
 |---|---|---|---|---|---|
 | 1. 3D layout | Sales, concept reviews, the "vibe" loop itself | Medium (good at structure, weak at geometry) | S–M, ~1–2 weeks | Low | **Built (v0.2)** |
-| 2. PLC control logic | Automation engineers | Good for skeletons, weak for motion/safety | M for a skeleton, L to simulate | Medium–high | Build a skeleton after 4 |
+| 2. PLC control logic | Automation engineers | Good for skeletons, weak for motion/safety | M for a skeleton, L to simulate | Medium–high | **Skeleton built (v0.3)** |
 | 3. CAD export (STEP) | Mechanical design office | Poor without a template library | L–XL, 1–2+ months | High | Only with a parts/template library |
 | 4. Specs + safety documents | Pre-sales, project managers, validation (GMP) | Excellent (it is text) | S–M, ~1 week | Medium (compliance wording) | **Built (v0.2)** |
 
@@ -144,12 +145,25 @@ ISO 12100, plus the safety functions the machine likely needs. Export to DOCX/PD
   hazard groups, and the safety functions to specify, with "PL to be determined". Export to
   .docx, .md, or print/PDF. They work in demo mode too.
 
+- **PLC skeleton** (`services/plc.py`, `components/PlcView.tsx`, v0.3). From the estimated I/O
+  list: `E_PackMLState`/`E_PackMLCmd`, `FB_PackML` (simplified PackML state machine), `GVL_IO`, one
+  `FB_Sxx_<station>` per flow station with a step sequence for its cylinders, vacuum, vision
+  triggers, dosing and axes (with step timeouts and fault codes), and `PRG_Main` chaining the
+  stations' cycles. Exports `.st` files (zip) and PLCopen XML, validated against the TC6 v2.01
+  schema in tests when `MF_PLCOPEN_XSD` points to the XSD. Not yet imported into a real IDE.
+  Safety functions are listed as comments, never implemented.
+- **Realistic 3D** (`frontend/src/render/`, v0.3). A procedural render: every flow station becomes a
+  "balcony" module (base cabinet with louvres and accent stripe, mechanism plate, upper cabinet,
+  glass guard), components become recognisable models placed on the plate, empty cells get
+  generic hardware, transport stations become conveyors, plus HMI arm, stack light, reels and moving
+  products. Next level: vendor CAD models for catalog parts.
+
 ## Recommendation
 
 1. **3D layout + specs/documents first** (done in v0.2). They are cheap and low risk, and together they make the
    loop feel real (you see the machine and read its description after every prompt).
 2. **Then the I/O list and a PLC skeleton** (PackML state machine per station, PLCopen XML),
-   explicitly without safety logic.
+   explicitly without safety logic (done in v0.3).
 3. **CAD only if** the mechanical team will help build a template library. Without one, it isn't
    worth the effort.
 

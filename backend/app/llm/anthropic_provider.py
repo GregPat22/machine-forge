@@ -3,14 +3,16 @@
 from __future__ import annotations
 
 import json
+import time
 
 import anthropic
 from pydantic import ValidationError
 
-from app.llm.base import LLMError, LLMNotConfigured, T, Turn
+from app.llm.base import LLMError, LLMNotConfigured, ProgressFn, T, Turn, progress_from_text
 from app.schema import strict_schema
 
 FALLBACK_BETA = "server-side-fallback-2026-07-01"
+PROGRESS_INTERVAL_S = 0.4
 
 
 class AnthropicProvider:
@@ -27,15 +29,29 @@ class AnthropicProvider:
                 "(or choose another MF_LLM_PROVIDER)."
             )
 
-    def structured(self, *, system: str, turns: list[Turn], output: type[T]) -> T:
+    def structured(
+        self, *, system: str, turns: list[Turn], output: type[T], on_progress: ProgressFn | None = None
+    ) -> T:
+        text, thought = "", ""
+        last_report = 0.0
+
+        def report(phase: str, force: bool = False) -> None:
+            nonlocal last_report
+            if on_progress is None or (not force and time.monotonic() - last_report < PROGRESS_INTERVAL_S):
+                return
+            last_report = time.monotonic()
+            lines = [ln.strip() for ln in thought.splitlines() if ln.strip()]
+            on_progress(progress_from_text(phase, text, lines[-1][-160:] if lines else None))
+
         try:
-            # Streaming keeps long design generations clear of HTTP timeouts.
+            # Streaming keeps long design generations clear of HTTP timeouts and lets us report progress.
             with self._client.beta.messages.stream(
                 model=self.model,
                 max_tokens=64000,
                 system=system,
                 messages=list(turns),
-                thinking={"type": "adaptive"},
+                # Summarized thinking gives the user something to read while the model reasons.
+                thinking={"type": "adaptive", "display": "summarized"},
                 output_config={
                     "effort": self.effort,
                     "format": {"type": "json_schema", "schema": strict_schema(output)},
@@ -46,6 +62,17 @@ class AnthropicProvider:
                 betas=[FALLBACK_BETA],
                 fallbacks="default",
             ) as stream:
+                report("waiting", force=True)
+                for event in stream:
+                    if event.type != "content_block_delta":
+                        continue
+                    delta = event.delta
+                    if delta.type == "thinking_delta":
+                        thought += delta.thinking
+                        report("thinking")
+                    elif delta.type == "text_delta":
+                        text += delta.text
+                        report("writing")
                 message = stream.get_final_message()
         except anthropic.AuthenticationError as exc:
             raise LLMNotConfigured("Claude rejected the API key: check ANTHROPIC_API_KEY.") from exc
@@ -61,10 +88,10 @@ class AnthropicProvider:
         if message.stop_reason == "max_tokens":
             raise LLMError("The design got too large for one answer. Ask for a smaller change.")
 
-        text = next((block.text for block in message.content if block.type == "text"), None)
-        if text is None:
+        answer = next((block.text for block in message.content if block.type == "text"), None)
+        if answer is None:
             raise LLMError("The model returned no answer.")
         try:
-            return output.model_validate(json.loads(text))
+            return output.model_validate(json.loads(answer))
         except (json.JSONDecodeError, ValidationError) as exc:
             raise LLMError(f"The model's answer did not match the design schema: {exc}") from exc

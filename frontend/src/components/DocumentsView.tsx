@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
-import type { DocSection, TechnicalDocument } from "../types";
+import type { DocSection, TechnicalDocument, TemplateStatus } from "../types";
 
 const COLLAPSED_ROWS = 12;
 
@@ -63,6 +63,58 @@ function Section({ section }: { section: DocSection }) {
   );
 }
 
+function TemplateControl() {
+  const [status, setStatus] = useState<TemplateStatus | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    api.templateStatus().then(setStatus).catch(() => setStatus(null));
+  }, []);
+
+  async function upload(file: File | undefined) {
+    if (!file) return;
+    setError(null);
+    try {
+      setStatus(await api.uploadTemplate(file));
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
+
+  async function remove() {
+    await api.deleteTemplate();
+    setStatus({ exists: false });
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500 print:hidden">
+      <span>
+        Word template:{" "}
+        {status?.exists ? (
+          <strong className="text-slate-700 dark:text-slate-200">
+            company template (uploaded {new Date(status.uploaded_at ?? "").toLocaleDateString()})
+          </strong>
+        ) : (
+          "default"
+        )}
+      </span>
+      <label className="cursor-pointer underline hover:text-amber-600">
+        {status?.exists ? "replace" : "upload your .docx template"}
+        <input type="file" accept=".docx" className="hidden" onChange={(e) => upload(e.target.files?.[0])} />
+      </label>
+      {status?.exists && (
+        <button className="underline hover:text-red-600" onClick={remove}>
+          remove
+        </button>
+      )}
+      <span title="Headers, footers, styles and page setup come from the template. Body text before a {{content}} paragraph is kept (e.g. a cover page). Placeholders: {{title}}, {{subtitle}}, {{revision}}, {{date}}.">
+        ⓘ
+      </span>
+      {error && <span className="text-red-600">{error}</span>}
+    </div>
+  );
+}
+
 export default function DocumentsView({ projectId, revision }: { projectId: string; revision: number }) {
   const [doc, setDoc] = useState<TechnicalDocument | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -94,6 +146,8 @@ export default function DocumentsView({ projectId, revision }: { projectId: stri
           </button>
         </div>
       </div>
+
+      <TemplateControl />
 
       <div className="rounded-md border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
         {doc.disclaimer}

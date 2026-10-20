@@ -19,16 +19,30 @@ from tests.conftest import BLISTER_PROBLEM
 ANSWER = DesignUpdate(reply="First version.", design=_initial_design(BLISTER_PROBLEM)).model_dump_json()
 
 
-def _sse(text: str, stop_reason: str = "end_turn") -> str:
+def _sse(text: str, stop_reason: str = "end_turn", thinking: list[str] | None = None, chunks: int = 1) -> str:
     events = [
         ("message_start", {"type": "message_start", "message": {
             "id": "msg_1", "type": "message", "role": "assistant", "model": "claude-opus-5-5", "content": [],
             "stop_reason": None, "stop_sequence": None, "usage": {"input_tokens": 10, "output_tokens": 1}}}),
-        ("content_block_start", {"type": "content_block_start", "index": 0,
-                                 "content_block": {"type": "text", "text": ""}}),
-        ("content_block_delta", {"type": "content_block_delta", "index": 0,
-                                 "delta": {"type": "text_delta", "text": text}}),
-        ("content_block_stop", {"type": "content_block_stop", "index": 0}),
+    ]
+    index = 0
+    if thinking:
+        events.append(("content_block_start", {"type": "content_block_start", "index": 0,
+                                               "content_block": {"type": "thinking", "thinking": "", "signature": ""}}))
+        events += [("content_block_delta", {"type": "content_block_delta", "index": 0,
+                                            "delta": {"type": "thinking_delta", "thinking": t}}) for t in thinking]
+        events += [("content_block_delta", {"type": "content_block_delta", "index": 0,
+                                            "delta": {"type": "signature_delta", "signature": "sig"}}),
+                   ("content_block_stop", {"type": "content_block_stop", "index": 0})]
+        index = 1
+    size = max(1, -(-len(text) // chunks))
+    events.append(("content_block_start", {"type": "content_block_start", "index": index,
+                                           "content_block": {"type": "text", "text": ""}}))
+    events += [("content_block_delta", {"type": "content_block_delta", "index": index,
+                                        "delta": {"type": "text_delta", "text": text[i:i + size]}})
+               for i in range(0, max(len(text), 1), size)]
+    events += [
+        ("content_block_stop", {"type": "content_block_stop", "index": index}),
         ("message_delta", {"type": "message_delta", "delta": {"stop_reason": stop_reason, "stop_sequence": None},
                            "usage": {"output_tokens": 100}}),
         ("message_stop", {"type": "message_stop"}),
@@ -62,10 +76,31 @@ def test_anthropic_request_shape_and_parsing() -> None:
     body = seen["body"]
     assert body["model"] == "claude-opus-5-5"
     assert body["stream"] is True
-    assert body["thinking"] == {"type": "adaptive"}
+    assert body["thinking"] == {"type": "adaptive", "display": "summarized"}
     assert body["output_config"]["format"]["type"] == "json_schema"
     assert body["fallbacks"] == "default"
     assert FALLBACK_BETA in seen["beta"]
+
+
+def test_anthropic_reports_progress_while_streaming(monkeypatch: pytest.MonkeyPatch) -> None:
+    import app.llm.anthropic_provider as module
+
+    monkeypatch.setattr(module, "PROGRESS_INTERVAL_S", 0.0)  # report every delta
+
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        sse = _sse(ANSWER, thinking=["Sizing the forming station.\n", "Checking cycle time."], chunks=8)
+        return httpx2.Response(200, text=sse, headers={"content-type": "text/event-stream"})
+
+    seen: list[dict] = []
+    result = _anthropic(handler).structured(
+        system="s", turns=[{"role": "user", "content": "x"}], output=DesignUpdate, on_progress=seen.append
+    )
+    assert result.reply == "First version."
+    phases = [p["phase"] for p in seen]
+    assert phases[0] == "waiting" and "thinking" in phases and phases[-1] == "writing"
+    assert next(p for p in seen if p["phase"] == "thinking" and p["note"])["note"] == "Sizing the forming station."
+    assert seen[-1]["stations"] == len(result.design.stations)
+    assert seen[-1]["components"] == sum(len(s.components) for s in result.design.stations)
 
 
 def test_anthropic_refusal_is_reported() -> None:

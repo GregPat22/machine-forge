@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, money } from "../api";
+import SupplierRatings from "../components/SupplierRatings";
 import type { ConnectorStatus, PriceListEntry } from "../types";
 
 export default function Suppliers() {
@@ -10,6 +11,7 @@ export default function Suppliers() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState("");
+  const [imports, setImports] = useState(0);
 
   useEffect(() => {
     api.priceList().then(setEntries).catch((e: Error) => setError(e.message));
@@ -24,6 +26,7 @@ export default function Suppliers() {
       const result = await api.uploadPriceList(file, append);
       setMessage(`Imported ${result.imported} rows (${result.total} in your list).`);
       setEntries(await api.priceList());
+      setImports((n) => n + 1);
     } catch (e) {
       setError((e as Error).message);
     }
@@ -44,7 +47,8 @@ export default function Suppliers() {
           <p className="mt-1 text-sm text-slate-500">
             Import a price list or purchase history (.xlsx or .csv). Needed columns: supplier, and part number or
             description. Optional: manufacturer, unit price, currency, lead time (days), MOQ. English or Italian
-            headers both work (e.g. “Fornitore”, “Codice”, “Prezzo”).
+            headers both work (e.g. “Fornitore”, “Codice”, “Prezzo”). Every sheet of an Excel file is read, so answered
+            RFQ workbooks can be imported as they are (only quoted rows).
           </p>
           <div className="mt-4 flex flex-wrap items-center gap-3">
             <input type="file" accept=".csv,.xlsx,.xlsm" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
@@ -83,6 +87,8 @@ export default function Suppliers() {
           </ul>
         </section>
       </div>
+
+      <SupplierRatings refreshKey={imports} />
 
       <section className="card overflow-x-auto">
         <div className="flex items-center gap-3 border-b border-slate-200 p-3 dark:border-slate-800">

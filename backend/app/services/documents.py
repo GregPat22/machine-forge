@@ -12,10 +12,12 @@ import io
 import re
 from collections import Counter
 from datetime import datetime, timezone
+from pathlib import Path
 
 from pydantic import BaseModel
 
-from app.models import Component, MachineDesign, Station
+from app.models import MachineDesign
+from app.services.io_points import SIGNAL_TYPES, io_points, io_totals, station_codes
 from app.services.layout import compute_layout
 from app.services.spare_parts import build_catalog
 
@@ -26,7 +28,6 @@ DISCLAIMER = (
     "EU Machinery Regulation 2023/1230 technical file)."
 )
 
-SIGNAL_TYPES = ("DI", "DO", "AI", "AO", "Safety DI", "Axis", "Fieldbus")
 
 
 class DocTable(BaseModel):
@@ -56,80 +57,10 @@ class TechnicalDocument(BaseModel):
 # --- I/O list ---------------------------------------------------------------------------------
 
 
-def _text(component: Component) -> str:
-    return " ".join([component.name, *(f"{s.name} {s.value}" for s in component.specs)]).lower()
-
-
-def _signals(component: Component) -> list[tuple[str, str]]:
-    """(signal type, description) for ONE unit of the component. Heuristic, per category."""
-    text = _text(component)
-    c = component.category
-    if c == "sensor":
-        if any(k in text for k in ("thermocouple", "pt100", "load cell", "analog", "4-20", "pressure transmitter")):
-            return [("AI", "measurement")]
-        return [("DI", "signal")]
-    if c == "pneumatic_actuator":
-        return [("DO", "valve coil"), ("DI", "end position 1"), ("DI", "end position 2")]
-    if c == "vacuum":
-        if "ejector" in text or "generator" in text or "pump" in text:
-            return [("DO", "vacuum on"), ("DI", "vacuum switch")]
-        return []
-    if c == "servo_motor":
-        return [("Axis", "servo axis")]
-    if c == "linear_motion":
-        return [("Axis", "linear axis")] if "axis" in text else []
-    if c == "motor":
-        return [("DO", "run"), ("DI", "running / overload")]
-    if c in ("heating", "sealing"):
-        return [("DO", "heater (SSR)")] if any(k in text for k in ("heat", "kw", "power", "temp")) else []
-    if c in ("pump", "dosing"):
-        if "gun" in text:
-            return [("DO", "dispense")]
-        if any(k in text for k in ("tube", "tubing", "brush")):
-            return []  # consumables, or driven by a motor listed separately
-        return [("DO", "run"), ("DI", "ready / fault")]
-    if c == "safety":
-        if any(k in text for k in ("door", "interlock", "switch", "e-stop", "emergency", "light curtain", "scanner")):
-            return [("Safety DI", "channel A"), ("Safety DI", "channel B")]
-        if "relay" in text:
-            return [("DI", "safety relay status"), ("DO", "safety relay reset")]
-        return []
-    if c in ("vision", "printing_marking"):
-        if any(k in text for k in ("camera", "printer", "marking", "laser", "inkjet")):
-            return [("Fieldbus", "device"), ("DO", "trigger"), ("DI", "result OK")]
-        return []
-    if c in ("pneumatic_valve", "drive", "hmi", "io_module"):
-        if c == "pneumatic_valve" and "terminal" not in text and "island" not in text:
-            return [("DO", "valve coil")]
-        return [("Fieldbus", "node")]
-    if c == "air_treatment":
-        return [("DO", "soft-start / dump valve"), ("DI", "pressure switch")]
-    if c == "cooling":
-        return [("DO", "run"), ("DI", "fault")]
-    return []
-
-
 def io_list(design: MachineDesign) -> tuple[list[list[str]], Counter[str]]:
-    rows: list[list[str]] = []
-    totals: Counter[str] = Counter()
-    for code, station in _station_codes(design):
-        for component in station.components:
-            per_unit = _signals(component)
-            for unit in range(1, component.quantity + 1):
-                per_type: Counter[str] = Counter()
-                for kind, desc in per_unit:
-                    per_type[kind] += 1
-                    suffix = f".{unit}" if component.quantity > 1 else ""
-                    tag = f"{code}.{component.id}{suffix}.{kind.replace(' ', '')}{per_type[kind]}"
-                    rows.append([tag, station.name, component.name, kind, desc])
-                    totals[kind] += 1
-    return rows, totals
-
-
-def _station_codes(design: MachineDesign) -> list[tuple[str, Station]]:
-    flow = sorted((s for s in design.stations if s.sequence > 0), key=lambda s: s.sequence)
-    infra = [s for s in design.stations if s.sequence <= 0]
-    return [(f"S{s.sequence:02d}", s) for s in flow] + [(f"X{i:02d}", s) for i, s in enumerate(infra, start=1)]
+    points = io_points(design)
+    rows = [[p.tag, p.station.name, p.component.name, p.kind, p.description] for p in points]
+    return rows, io_totals(points)
 
 
 # --- hazards and safety functions ----------------------------------------------------------------
@@ -168,7 +99,7 @@ GENERAL_HAZARDS = [
 
 def hazard_rows(design: MachineDesign) -> list[list[str]]:
     rows: list[list[str]] = []
-    for _code, station in _station_codes(design):
+    for _code, station in station_codes(design):
         seen: set[str] = set()
         for component in station.components:
             hazard = HAZARDS.get(component.category)
@@ -341,24 +272,99 @@ def to_markdown(doc: TechnicalDocument) -> str:
     return "\n".join(out)
 
 
-def to_docx(doc: TechnicalDocument) -> bytes:
+CONTENT_MARKER = "{{content}}"
+
+
+def _placeholders(doc: TechnicalDocument) -> dict[str, str]:
+    return {
+        "{{title}}": doc.title,
+        "{{subtitle}}": doc.subtitle,
+        "{{revision}}": str(doc.revision),
+        "{{date}}": f"{doc.generated_at:%Y-%m-%d}",
+    }
+
+
+def _fill_placeholders(paragraphs, values: dict[str, str]) -> None:
+    for paragraph in paragraphs:
+        if "{{" not in paragraph.text:
+            continue
+        for run in paragraph.runs:  # placeholders inside one run keep their formatting
+            for key, value in values.items():
+                if key in run.text:
+                    run.text = run.text.replace(key, value)
+        if any(key in paragraph.text for key in values) and paragraph.runs:  # split across runs
+            text = paragraph.text
+            for key, value in values.items():
+                text = text.replace(key, value)
+            for run in paragraph.runs[1:]:
+                run.text = ""
+            paragraph.runs[0].text = text
+
+
+def _prepare_template(document, values: dict[str, str]) -> None:
+    """Keep the body up to a {{content}} paragraph (e.g. a cover page); drop the rest of the body.
+
+    Headers, footers, styles and page setup always come from the template.
+    """
+    body = document.element.body
+    children = [c for c in body.iterchildren() if not c.tag.endswith("}sectPr")]
+    marker = next((c for c in children if c.tag.endswith("}p") and CONTENT_MARKER in "".join(c.itertext())), None)
+    keep = children[: children.index(marker)] if marker is not None else []
+    for child in children:
+        if child not in keep:
+            body.remove(child)
+    _fill_placeholders(document.paragraphs, values)
+    for section in document.sections:
+        for part in (section.header, section.footer, section.first_page_header, section.first_page_footer):
+            _fill_placeholders(part.paragraphs, values)
+            for table in part.tables:
+                for row in table.rows:
+                    for cell in row.cells:
+                        _fill_placeholders(cell.paragraphs, values)
+
+
+def to_docx(doc: TechnicalDocument, template: Path | None = None) -> bytes:
+    """Word export. With a company template, its headers, footers, styles and page setup are used."""
     from docx import Document
     from docx.shared import Pt
 
-    document = Document()
-    document.styles["Normal"].font.size = Pt(10)
-    document.add_heading(doc.title, level=0)
+    if template is not None and template.is_file():
+        document = Document(str(template))
+        _prepare_template(document, _placeholders(doc))
+    else:
+        document = Document()
+        document.styles["Normal"].font.size = Pt(10)
+
+    def styled(text: str, style: str, fallback_bold: bool = False):
+        try:
+            return document.add_paragraph(text, style=style)
+        except KeyError:  # the template does not define this style
+            paragraph = document.add_paragraph(("• " if style == "List Bullet" else "") + text)
+            if fallback_bold and paragraph.runs:
+                paragraph.runs[0].bold = True
+            return paragraph
+
+    def heading(text: str, level: int) -> None:
+        try:
+            document.add_heading(text, level=level)
+        except KeyError:
+            styled(text, "", fallback_bold=True)
+
+    heading(doc.title, 0)
     document.add_paragraph(f"{doc.subtitle} · generated {doc.generated_at:%Y-%m-%d %H:%M} UTC")
     document.add_paragraph(doc.disclaimer).runs[0].italic = True
     for s in doc.sections:
-        document.add_heading(s.title, level=1)
+        heading(s.title, 1)
         for p in s.paragraphs:
             document.add_paragraph(p)
         for b in s.bullets:
-            document.add_paragraph(b, style="List Bullet")
+            styled(b, "List Bullet")
         if s.table and s.table.rows:
             table = document.add_table(rows=1, cols=len(s.table.columns))
-            table.style = "Table Grid"
+            try:
+                table.style = "Table Grid"
+            except KeyError:
+                pass
             for cell, title in zip(table.rows[0].cells, s.table.columns):
                 cell.text = title
                 cell.paragraphs[0].runs[0].bold = True
@@ -370,3 +376,13 @@ def to_docx(doc: TechnicalDocument) -> bytes:
     buffer = io.BytesIO()
     document.save(buffer)
     return buffer.getvalue()
+
+
+def validate_template(data: bytes) -> None:
+    """Raise ValueError unless the bytes are a .docx python-docx can open."""
+    from docx import Document
+
+    try:
+        Document(io.BytesIO(data))
+    except Exception as exc:  # python-docx raises several unrelated types for bad files
+        raise ValueError("This is not a valid .docx file.") from exc

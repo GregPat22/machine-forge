@@ -192,7 +192,21 @@ class Offer(BaseModel):
     url: str | None = None
     match: Literal["exact", "similar"] = "exact"
     is_current: bool = Field(default=False, description="True if it comes from your own supplier list")
+    rating: float | None = Field(default=None, description="Your rating of the supplier, 1-5")
+    preferred: bool = False
     score: float | None = None
+
+
+class SupplierRating(BaseModel):
+    name: str
+    quality: int | None = Field(default=None, description="1 (poor) to 5 (excellent)")
+    delivery: int | None = Field(default=None, description="Delivery reliability, 1 to 5")
+    preferred: bool = False
+    notes: str | None = None
+
+
+class SupplierInfo(SupplierRating):
+    price_list_items: int = 0
 
 
 class SourcingLine(BaseModel):

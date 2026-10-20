@@ -48,7 +48,7 @@ def create_app(
     connectors: list[SupplierConnector] | None = None,
 ) -> FastAPI:
     settings = settings or load_settings()
-    app = FastAPI(title="Machine Forge", version="0.2.0")
+    app = FastAPI(title="Machine Forge", version="0.3.0")
     app.state.mf = AppState(
         settings=settings,
         storage=storage or Storage(settings.db_path),

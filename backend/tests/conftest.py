@@ -12,8 +12,8 @@ from app.storage import Storage
 
 
 @pytest.fixture
-def settings() -> Settings:
-    return Settings(llm_provider="mock", fx_rates={"USD": 0.9})
+def settings(tmp_path) -> Settings:
+    return Settings(llm_provider="mock", fx_rates={"USD": 0.9}, template_dir=tmp_path / "templates")
 
 
 @pytest.fixture

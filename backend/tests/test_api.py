@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 from fastapi.testclient import TestClient
 
 from app.config import Settings
@@ -71,6 +73,53 @@ def test_layout_and_document_endpoints(client: TestClient) -> None:
     docx = client.get(f"/api/projects/{pid}/documents.docx?revision=1")
     assert docx.content[:2] == b"PK"
     assert "r1.docx" in docx.headers["content-disposition"]
+
+
+def _sse_events(text: str) -> list[tuple[str, dict]]:
+    events = []
+    for block in text.strip().split("\n\n"):
+        lines = dict(line.split(": ", 1) for line in block.splitlines() if not line.startswith(":"))
+        if "event" in lines:
+            events.append((lines["event"], json.loads(lines["data"])))
+    return events
+
+
+def test_streaming_create_and_prompt(client: TestClient) -> None:
+    with client.stream("POST", "/api/projects/stream", json={"problem": BLISTER_PROBLEM}) as response:
+        assert response.headers["content-type"].startswith("text/event-stream")
+        events = _sse_events(response.read().decode())
+    kinds = [k for k, _ in events]
+    assert kinds[0] == "progress" and kinds[-1] == "done"
+    project = events[-1][1]
+    assert project["latest_revision"] == 1
+
+    with client.stream("POST", f"/api/projects/{project['id']}/prompt/stream",
+                       json={"message": "add vision inspection"}) as response:
+        events = _sse_events(response.read().decode())
+    assert events[-1][0] == "done" and events[-1][1]["latest_revision"] == 2
+    writing = [p for k, p in events if k == "progress" and p["phase"] == "writing"]
+    assert writing and writing[-1]["stations"] == len(events[-1][1]["design"]["stations"])
+
+    assert client.post("/api/projects/nope/prompt/stream", json={"message": "x"}).status_code == 404
+
+
+def test_diff_drawing_and_plc_endpoints(client: TestClient) -> None:
+    pid = client.post("/api/projects", json={"problem": BLISTER_PROBLEM}).json()["id"]
+    client.post(f"/api/projects/{pid}/prompt", json={"message": "add vision inspection"})
+    diff = client.get(f"/api/projects/{pid}/diff").json()
+    assert (diff["from_revision"], diff["to_revision"]) == (1, 2)
+    assert diff["counts"]["stations_added"] == 1 and diff["counts"]["components_added"] == 2
+    assert client.get(f"/api/projects/{pid}/diff?from=2&to=1").json()["counts"]["stations_removed"] == 1
+
+    svg = client.get(f"/api/projects/{pid}/layout.svg")
+    assert svg.headers["content-type"].startswith("image/svg+xml") and "Vision inspection" in svg.text
+    assert "SECTION" in client.get(f"/api/projects/{pid}/layout.dxf").text
+
+    plc = client.get(f"/api/projects/{pid}/plc").json()
+    assert any(f["name"] == "PRG_Main.st" for f in plc["files"])
+    assert client.get(f"/api/projects/{pid}/plc.zip").content[:2] == b"PK"
+    assert client.get(f"/api/projects/{pid}/plc.xml").text.startswith("<?xml")
+    assert client.get(f"/api/projects/{pid}/rfq.xlsx").content[:2] == b"PK"
 
 
 def test_price_list_upload_and_sourcing(client: TestClient) -> None:

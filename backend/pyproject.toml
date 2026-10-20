@@ -1,6 +1,6 @@
 [project]
 name = "machine-forge"
-version = "0.2.0"
+version = "0.3.0"
 description = "Design automatic machines from a problem statement by prompting, and source their spare parts."
 requires-python = ">=3.11"
 dependencies = [
@@ -17,6 +17,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest>=8",
+    "ezdxf>=1.3",
 ]
 
 [build-system]
