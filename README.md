@@ -7,11 +7,14 @@ suppliers and external vendors** to find the best offer.
 
 Think special-purpose machines: packaging, filling, assembly, inspection.
 
-> Status: **v0.3, prototype.** Design loop with live progress, revisions and diffs, realistic and
-> concept 3D, 2D top view (SVG/DXF), technical documents (Word, with your company template), PLC
-> skeleton (Structured Text + PLCopen XML), spare-parts catalog, supplier comparison with ratings,
-> and RFQ workbooks all work end to end. CAD (STEP) export is not built
-> (see [docs/output-options.md](docs/output-options.md)).
+> Status: **v0.4 in progress, Phase 0 of [docs/PLAN.md](docs/PLAN.md).** The project was
+> redefined on 2026-10-21: AI-assisted concept engineering with real timing, throughput,
+> geometry, BOM and cost, simulated before anything is built. The v0.3 design loop, revisions and
+> diffs, concept 3D, 2D top view (SVG/DXF), technical documents, PLC skeleton, spare-parts catalog
+> and supplier comparison still work end to end. The v0.3 "realistic 3D" render was removed:
+> it drew cabinets, hardware and products the model knew nothing about (see
+> [ADR 0009](docs/adr/0009-geometry-as-data-scene-json.md)). Simulation, an honest 3D view and
+> the module library arrive with Phases 1 to 5.
 
 ## What works today
 
@@ -24,15 +27,10 @@ Think special-purpose machines: packaging, filling, assembly, inspection.
   (its thinking, then "writing: 6 stations, 41 components so far").
 - **Revisions and diffs.** View, restore or compare any two revisions: stations and components
   added, removed or changed, field by field.
-- **Realistic 3D.** A procedural render of the machine: brushed-steel base and upper cabinets,
-  mechanism plates with the station's components (servo motors, cylinders with hoses, sensors,
-  cameras, reels, drive wheels, valve terminals…), glass guards, HMI on an arm, stack light,
-  conveyors and products moving through the line, studio lighting with soft shadows and floor
-  reflections. Click a station for its components, double-click to zoom to it, save an image,
-  change the accent colour. Not engineering geometry.
-- **Concept 3D and 2D top view.** The same layout as simple blocks, and as a dimensioned top view
-  to download as SVG or as DXF (R12, mm) for CAD. Inline or U-shape ("make the line U-shaped").
-  Positions are computed by code from the station envelopes the AI proposes.
+- **Concept 3D and 2D top view.** The layout as labelled blocks (one per station envelope), and
+  as a dimensioned top view to download as SVG or as DXF (R12, mm) for CAD. Inline or U-shape
+  ("make the line U-shaped"). Positions are computed by code from the station envelopes the AI
+  proposes. Nothing is drawn that the model does not contain.
 - **Technical documents.** Functional description, sequence of operations with a cycle-time vs
   throughput check, estimated I/O list with PLC sizing, recommended spare parts, a hazard
   checklist along ISO 12100 and the safety functions to specify. Export to Word, Markdown or
@@ -119,7 +117,7 @@ For private / on-premise models see [docs/ai-providers.md](docs/ai-providers.md)
 ### Tests
 
 ```bash
-cd backend && pytest          # 52 tests, no network or keys needed
+cd backend && pytest          # no network or keys needed
 cd frontend && npm run build  # type-check + production build
 ```
 
@@ -140,10 +138,10 @@ backend/
   tests/
 frontend/src/
   pages/                 Home, ProjectPage (chat + tabs), Suppliers
-  components/            Chat, DesignView, MachineRender + Layout3D (three.js), DocumentsView, PlcView,
+  components/            Chat, DesignView, Layout3D (three.js, concept blocks), DocumentsView, PlcView,
                          SparePartsView, RevisionsView + DiffView, SupplierRatings
-  render/                realistic render: materials, component models (parts), machine assembly
-docs/                    architecture, output options, suppliers, AI providers
+docs/                    PLAN (read first), engineering-rules, specs/ (one per phase), adr/,
+                         architecture, output options, suppliers, AI providers
 examples/                sample price list
 ```
 
@@ -156,10 +154,10 @@ examples/                sample price list
 | 2026-10-20 | AI: external model (Claude API) for now; must support private deployment for companies (provider interface). |
 | 2026-10-20 | Stack: Python/FastAPI backend (keeps CadQuery/CAD and data tooling open), React/TypeScript frontend, SQLite. |
 | 2026-10-20 | Next phase (v0.2): 3D concept layout + technical documents, as recommended in [output-options](docs/output-options.md). Both are derived from the design in code. |
-| 2026-10-20 | v0.3: rest of the roadmap that needs no keys or decisions (diffs, 2D/DXF, PLC skeleton, ratings + RFQ, Word templates, streaming progress), plus a realistic 3D render, the long-term goal for the 3D view. |
+| 2026-10-20 | v0.3: rest of the roadmap that needs no keys or decisions (diffs, 2D/DXF, PLC skeleton, ratings + RFQ, Word templates, streaming progress), plus a realistic 3D render. |
+| 2026-10-21 | **Redefinition, see [docs/PLAN.md](docs/PLAN.md) and [docs/adr/](docs/adr/).** Concept engineering with simulation (throughput + mechanism timing), module library, STEP/Excel/AutomationML import, any AI provider, AGPL-3.0 + CLA. Realistic render deleted. Supplier connectors, ratings, RFQ workbooks and the PLC skeleton are **frozen** (bug fixes only). |
 
-**Open:** CAD (STEP) export, which only pays off with a template library from the mechanical team;
-users and authentication (which login: local accounts or company SSO?).
+**Open:** see `docs/PLAN.md` section 9.
 
 ## Roadmap
 
@@ -172,14 +170,21 @@ users and authentication (which login: local accounts or company SSO?).
 - [x] Supplier rating (quality, delivery reliability) in the score — v0.3
 - [x] Revision diff view — v0.3
 - [x] Streaming progress while the AI designs — v0.3
-- [x] Realistic 3D render — v0.3 (procedural; see below for the next step)
-- [ ] Verify the Mouser and Nexar connectors against the live APIs (needs keys)
-- [ ] More connectors (Digi-Key, RS, Farnell, TME)
-- [ ] Users and authentication before any shared deployment (needs a decision)
-- [ ] Realistic 3D, next level: real vendor CAD models (STEP → glTF) for catalog parts, ambient
-      occlusion, per-machine-type body styles
-- [ ] Test the PLCopen XML import in CODESYS / TwinCAT; Siemens SCL export
-- [ ] CAD (STEP) export, with a template library
+- [x] Realistic 3D render — v0.3, **removed 2026-10-21** (decoration, not a model)
+
+The plan from here is `docs/PLAN.md`, section 5:
+
+- [ ] Phase 0: cleanup and guardrails (in progress)
+- [ ] Phase 1: model v2 (product, process graph, mechanisms, structured roles), patch-based AI edits, OpenAI + Gemini providers
+- [ ] Phase 2: timing engine (motion profiles → cycle time → timing diagram)
+- [ ] Phase 3: throughput engine (discrete-event, SimPy) with results diffed per revision
+- [ ] Phase 4: editable layout, scene JSON, react-three-fiber viewer, simulation playback
+- [ ] Phase 5: module library, STEP → glTF and Excel BOM import
+- [ ] Phase 6: AI tools, what-if loop, evaluation harness
+- [ ] Phase 7: AutomationML, Docker Compose, minimal auth, docs
+
+Frozen (bug fixes only): Mouser/Nexar connectors, more connectors, supplier ratings, RFQ
+workbooks, PLC skeleton (CODESYS/TwinCAT import test, Siemens SCL). CAD (STEP) export stays out.
 
 ## Limits, honestly
 

@@ -1,21 +1,40 @@
-# Machine Forge — notes for Claude Code
+# Machine Forge: notes for Claude Code and other agents
 
-- Read `README.md` (decisions, roadmap) and `docs/architecture.md` before changing structure.
-- `backend/app/models.py` `MachineDesign` is the source of truth: outputs are derived from it in
-  code, the LLM only edits it. Keep its schema compatible with strict structured outputs (no free-form
-  dicts, no numeric bounds); new fields need defaults so old revisions still load.
-- Backend: `cd backend && .venv/Scripts/python -m pytest -q` (Windows) or `.venv/bin/pytest -q`.
-  Tests must not need network or API keys: use `MockProvider`, `httpx.MockTransport` (connectors,
-  OpenAI-compatible) and `httpx2.MockTransport` (Anthropic SDK 1.x).
-- Frontend: `cd frontend && npm run build` type-checks. Types in `src/types.ts` mirror `models.py`.
+## Read first, every session
+
+1. `docs/PLAN.md`: what we build, decisions D1-D10, phases.
+2. `docs/engineering-rules.md`: the twelve rules every PR is checked against.
+3. `docs/specs/phase-N.md` for the current phase (see "Status" in `README.md`). Do only what
+   the spec says. No "while we are here" refactors.
+
+## Non-negotiable
+
+- `backend/app/models.py` `MachineDesign` is the source of truth. The LLM edits it; every output
+  (layout, documents, I/O, PLC, catalog, and later timing, throughput, scene) is computed from it
+  by code. The LLM never writes coordinates, computable durations, rates or results.
+- No logic reads a display `name` or free text to decide behaviour.
+- Keep the LLM-facing schema compatible with strict structured outputs: no free-form dicts, no
+  numeric bounds, no recursion. New fields need defaults so old revisions still load, and a
+  storage migration when a column changes.
+- Tests need no network or API keys: `MockProvider`, `httpx.MockTransport` (connectors,
+  OpenAI-compatible), `httpx2.MockTransport` (Anthropic SDK 1.x).
+- Frozen (bug fixes only): `app/suppliers/`, `services/rfq.py`, `services/plc.py`, supplier
+  ratings. Do not touch them unless the spec names them.
+- No confidential data (machine specs, BOMs, CAD, prices from employers or customers) in the repo,
+  tests, issues or commits. Public sources only, cited.
+
+## Run and test
+
+- Backend: `cd backend && .venv/bin/pytest -q` (Windows: `.venv/Scripts/python -m pytest -q`).
+- Frontend: `cd frontend && npm run build` type-checks. `src/types.ts` mirrors `models.py`.
 - Run locally: `uvicorn app.main:create_app --factory --reload --reload-dir app --timeout-graceful-shutdown 2`
-  + `npm run dev` (without both flags the reloader can hang: pip installs into `.venv`, keep-alive
-  connections from the Vite proxy).
-- To try changes without touching the user's data, run a second backend with
-  `MF_DB_PATH=<scratch>.db MF_LLM_PROVIDER=mock ... --port 8010` and `MF_API_URL=http://localhost:8010 npx vite --port 5180`.
-  `?tab=layout&focus=<station id>` opens the realistic view zoomed on a station (handy for screenshots).
-- PLCopen XML schema check: set `MF_PLCOPEN_XSD` to a local `tc6_xml_v201.xsd` (e.g. from the Beremiz
-  repo) and the test in `tests/test_plc.py` runs; otherwise it is skipped.
-  `MF_LLM_PROVIDER=mock` works without a key.
-- Outputs (layout, documents) are computed from the design by code, never written by the LLM.
-- Commits: the repo is private; author email for this repo is set locally.
+  + `npm run dev` (both flags keep the reloader from hanging on pip installs and Vite keep-alive).
+- Scratch backend that leaves the user's data alone:
+  `MF_DB_PATH=<scratch>.db MF_LLM_PROVIDER=mock uvicorn ... --port 8010` and
+  `MF_API_URL=http://localhost:8010 npx vite --port 5180`. `MF_LLM_PROVIDER=mock` needs no key.
+- PLCopen XML schema test runs only when `MF_PLCOPEN_XSD` points to a local `tc6_xml_v201.xsd`.
+
+## Commits
+
+Private repo for now. Author email for this repo is set locally. One concern per commit; update
+docs and ADRs in the same commit as the change they describe.

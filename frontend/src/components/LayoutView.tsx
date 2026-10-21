@@ -3,11 +3,9 @@ import { api } from "../api";
 import type { Layout, MachineDesign } from "../types";
 
 const Layout3D = lazy(() => import("./Layout3D"));
-const MachineRender = lazy(() => import("./MachineRender"));
 
-type Mode = "realistic" | "concept" | "top";
+type Mode = "concept" | "top";
 const MODES: [Mode, string][] = [
-  ["realistic", "Realistic 3D"],
   ["concept", "Concept 3D"],
   ["top", "Top view 2D"],
 ];
@@ -15,9 +13,10 @@ const MODES: [Mode, string][] = [
 function storedMode(): Mode {
   try {
     const value = localStorage.getItem("mf.layoutMode");
-    return MODES.some(([m]) => m === value) ? (value as Mode) : "realistic";
+    // "realistic" was a mode until Phase 0; it falls back to the concept view.
+    return MODES.some(([m]) => m === value) ? (value as Mode) : "concept";
   } catch {
-    return "realistic";
+    return "concept";
   }
 }
 
@@ -85,7 +84,7 @@ export default function LayoutView({ projectId, revision, design }: Props) {
         </div>
       ) : (
         <Suspense fallback={loading}>
-          {mode === "realistic" ? <MachineRender layout={layout} design={design} /> : <Layout3D layout={layout} design={design} />}
+          <Layout3D layout={layout} design={design} />
         </Suspense>
       )}
     </div>

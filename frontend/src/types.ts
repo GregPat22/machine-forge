@@ -75,6 +75,7 @@ export interface Revision {
   prompt: string;
   reply: string;
   design: MachineDesign;
+  schema_version: number;
   created_at: string;
 }
 

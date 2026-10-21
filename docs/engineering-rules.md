@@ -1,0 +1,59 @@
+# Engineering rules
+
+The anti-slop contract. Every PR is checked against these; reviewers reject PRs that break them.
+Each rule names how it is checked. Rationale is in `docs/PLAN.md` section 2 (what went wrong in
+v0.3) and section 7.
+
+1. **No behaviour from display names.** Logic reads structured fields (`kind`, `category`, and
+   from model v2 `role`, `signals`, `motion`), never `.name`, `.function`, `.summary` or any
+   free text, to decide what to draw, compute or generate.
+   *Check:* `tests/test_repo_rules.py` greps for the patterns; a reviewer reads every new
+   regex or `.lower()` on a model string.
+
+2. **Every number has provenance.** Anything shown to the user is a model field or the output of
+   a named engine function. The UI can show which.
+   *Check:* a reviewer can answer "where does this number come from" for every value in a new
+   panel. From Phase 6 the citation test enforces it for AI replies.
+
+3. **The AI never writes** coordinates, durations that can be computed, rates, dimensions
+   derived from geometry, or compliance statements. It proposes structure, parameters,
+   components, assumptions and reasons.
+   *Check:* prompt diffs are reviewed against this list; patch operations that set computed
+   fields are rejected by the validator (Phase 1).
+
+4. **No decorative geometry.** Unknown geometry is a labelled envelope with its dimensions. No
+   fillers, no random hardware, no product shapes guessed from text, no hardcoded speeds.
+   *Check:* `tests/test_repo_rules.py` fails on imports of the deleted render; reviewers reject
+   any geometry that does not come from the scene JSON (Phase 4).
+
+5. **Engines are deterministic and pure.** Seeded where random, no I/O, formulas cite their
+   source in the docstring, unhandled cases raise instead of approximating silently.
+   *Check:* unit tests assert identical output for identical input; no `try/except: pass` in
+   `engines/`.
+
+6. **Tests need no network or keys.** Recorded payloads and mock providers only. Live
+   evaluations are a separate, optional job.
+   *Check:* CI has no secrets; a test that needs one is a bug.
+
+7. **Schema changes ship with a migration, defaults, and a `schema_version` bump.**
+   *Check:* `tests/test_migration.py` opens a database from the previous version.
+
+8. **Frozen modules stay frozen.** `app/suppliers/`, `services/rfq.py`, `services/plc.py`,
+   supplier ratings: bug fixes only until a spec reopens them.
+   *Check:* the PR diff touches none of them unless the phase spec lists them.
+
+9. **One phase at a time, tests before code.** Each phase has `docs/specs/phase-N.md` with
+   the tests to add; agents implement to the tests.
+   *Check:* the spec exists and is linked from the PR before any code is reviewed.
+
+10. **Small PRs, one concern, docs and ADR updated in the same PR.**
+    *Check:* a PR that changes a decision without an ADR is sent back.
+
+11. **Untrusted inputs** (STEP, Excel, glTF, AutomationML, price lists) are parsed with size
+    limits, in isolation, and never executed.
+    *Check:* every importer has a test with an oversized and a malformed file.
+
+12. **No confidential data**, from any employer, customer or NDA source, in the repo, the
+    tracker or the commit history. Public brochures, catalogs and textbooks only, cited in
+    `tests/golden/README.md`.
+    *Check:* reviewers ask for the source of every engineering constant.

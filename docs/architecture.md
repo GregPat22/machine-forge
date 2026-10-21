@@ -48,13 +48,17 @@ far, the latest line of the model's thinking summary), then one `done` (the proj
 The design call runs in a worker thread; the Claude provider reports from the stream deltas. The
 frontend reads the stream with `fetch` (`streamDesign` in `src/api.ts`).
 
-## Realistic render
+## 3D view
 
-`frontend/src/render/`: `materials.ts` (brushed-steel and other PBR materials, the HMI screen
-texture), `parts.ts` (one procedural model per component category, plus generic plate hardware),
-`machine.ts` (station modules, conveyors, cabinets, HMI, stack light, products, using the layout
-from the backend). `components/MachineRender.tsx` sets up the studio: environment lighting, a shadow-casting
-key light, a mirror floor under a fade layer, orbit controls and picking.
+`components/Layout3D.tsx` renders the layout boxes from `services/layout.py` as labelled blocks.
+The v0.3 procedural "realistic render" was removed in Phase 0 (ADR 0009): geometry becomes
+backend data (scene JSON) in Phase 4, and the frontend only renders it.
+
+## Frozen modules
+
+Supplier connectors (`suppliers/`), supplier ratings, RFQ workbooks (`services/rfq.py`) and the
+PLC skeleton (`services/plc.py`) are frozen: bug fixes only, no new work, until a phase spec
+reopens them. See `docs/PLAN.md` section 2.
 
 ## The prompting loop
 

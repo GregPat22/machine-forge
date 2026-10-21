@@ -21,9 +21,15 @@ from app.models import (
     Revision,
 )
 
+# Every table carries a workspace_id (one default workspace until users exist, see ADR 0008).
+# Stored designs carry the schema version of MachineDesign they were written with (1 = v0.3).
+DEFAULT_WORKSPACE = "default"
+DESIGN_SCHEMA_VERSION = 1
+
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS projects (
     id TEXT PRIMARY KEY,
+    workspace_id TEXT NOT NULL DEFAULT 'default',
     name TEXT NOT NULL,
     problem TEXT NOT NULL,
     created_at TEXT NOT NULL,
@@ -31,16 +37,19 @@ CREATE TABLE IF NOT EXISTS projects (
 );
 CREATE TABLE IF NOT EXISTS revisions (
     project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    workspace_id TEXT NOT NULL DEFAULT 'default',
     number INTEGER NOT NULL,
     prompt TEXT NOT NULL,
     reply TEXT NOT NULL,
     design TEXT NOT NULL,
+    schema_version INTEGER NOT NULL DEFAULT 1,
     created_at TEXT NOT NULL,
     PRIMARY KEY (project_id, number)
 );
 CREATE TABLE IF NOT EXISTS messages (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    workspace_id TEXT NOT NULL DEFAULT 'default',
     role TEXT NOT NULL,
     content TEXT NOT NULL,
     revision INTEGER,
@@ -48,6 +57,7 @@ CREATE TABLE IF NOT EXISTS messages (
 );
 CREATE TABLE IF NOT EXISTS price_list (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    workspace_id TEXT NOT NULL DEFAULT 'default',
     supplier TEXT NOT NULL,
     manufacturer TEXT,
     part_number TEXT,
@@ -60,6 +70,7 @@ CREATE TABLE IF NOT EXISTS price_list (
 );
 CREATE TABLE IF NOT EXISTS supplier_ratings (
     name TEXT PRIMARY KEY COLLATE NOCASE,
+    workspace_id TEXT NOT NULL DEFAULT 'default',
     quality INTEGER,
     delivery INTEGER,
     preferred INTEGER NOT NULL DEFAULT 0,
@@ -68,11 +79,23 @@ CREATE TABLE IF NOT EXISTS supplier_ratings (
 CREATE TABLE IF NOT EXISTS offer_cache (
     connector TEXT NOT NULL,
     query TEXT NOT NULL,
+    workspace_id TEXT NOT NULL DEFAULT 'default',
     offers TEXT NOT NULL,
     fetched_at TEXT NOT NULL,
     PRIMARY KEY (connector, query)
 );
 """
+
+# Columns added after v0.3, applied to databases created before them: (table, column, DDL type).
+MIGRATIONS: tuple[tuple[str, str, str], ...] = (
+    ("projects", "workspace_id", "TEXT NOT NULL DEFAULT 'default'"),
+    ("revisions", "workspace_id", "TEXT NOT NULL DEFAULT 'default'"),
+    ("revisions", "schema_version", "INTEGER NOT NULL DEFAULT 1"),
+    ("messages", "workspace_id", "TEXT NOT NULL DEFAULT 'default'"),
+    ("price_list", "workspace_id", "TEXT NOT NULL DEFAULT 'default'"),
+    ("supplier_ratings", "workspace_id", "TEXT NOT NULL DEFAULT 'default'"),
+    ("offer_cache", "workspace_id", "TEXT NOT NULL DEFAULT 'default'"),
+)
 
 
 def _now() -> datetime:
@@ -87,7 +110,16 @@ class Storage:
         self._conn.row_factory = sqlite3.Row
         self._conn.execute("PRAGMA foreign_keys = ON")
         self._conn.executescript(SCHEMA)
+        self._migrate()
         self._lock = threading.Lock()
+
+    def _migrate(self) -> None:
+        """Add columns that newer versions expect; safe to run on every start."""
+        with self._conn:
+            for table, column, ddl in MIGRATIONS:
+                existing = {row["name"] for row in self._conn.execute(f"PRAGMA table_info({table})")}
+                if column not in existing:
+                    self._conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {ddl}")
 
     # --- projects -------------------------------------------------------------------------
 
@@ -119,8 +151,9 @@ class Storage:
         self, project_id: str, number: int, prompt: str, reply: str, design: MachineDesign, now: str
     ) -> None:
         self._conn.execute(
-            "INSERT INTO revisions (project_id, number, prompt, reply, design, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-            (project_id, number, prompt, reply, design.model_dump_json(), now),
+            """INSERT INTO revisions (project_id, number, prompt, reply, design, schema_version, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (project_id, number, prompt, reply, design.model_dump_json(), DESIGN_SCHEMA_VERSION, now),
         )
         self._conn.executemany(
             "INSERT INTO messages (project_id, role, content, revision, created_at) VALUES (?, ?, ?, ?, ?)",
@@ -170,6 +203,7 @@ class Storage:
             prompt=row["prompt"],
             reply=row["reply"],
             design=MachineDesign.model_validate_json(row["design"]),
+            schema_version=row["schema_version"],
             created_at=row["created_at"],
         )
 

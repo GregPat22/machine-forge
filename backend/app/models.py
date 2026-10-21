@@ -127,6 +127,7 @@ class Revision(BaseModel):
     prompt: str
     reply: str
     design: MachineDesign
+    schema_version: int = Field(default=1, description="Version of the MachineDesign schema this revision was written with")
     created_at: datetime
 
 

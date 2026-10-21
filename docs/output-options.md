@@ -1,8 +1,10 @@
 # What should "create the machine" produce?
 
-Status: **options 1, 2 and 4 built** (2026-10-20): 3D layout (concept and realistic) and documents
-in v0.2–v0.3, a PLC skeleton in v0.3. Option 3 (CAD) remains open. This document compares the four
-candidate outputs.
+Status: **options 1, 2 and 4 built** (2026-10-20): concept 3D layout and documents in v0.2–v0.3,
+a PLC skeleton in v0.3. Option 3 (CAD) remains open. This document compares the four candidate
+outputs as of v0.3. **Superseded on 2026-10-21 by `docs/PLAN.md`**, which adds simulation
+(throughput and mechanism timing) as the main output and removes the realistic render; it is kept
+as the record of the v0.2/v0.3 reasoning.
 
 ## What already exists, whatever we choose
 
@@ -152,11 +154,10 @@ ISO 12100, plus the safety functions the machine likely needs. Export to DOCX/PD
   stations' cycles. Exports `.st` files (zip) and PLCopen XML, validated against the TC6 v2.01
   schema in tests when `MF_PLCOPEN_XSD` points to the XSD. Not yet imported into a real IDE.
   Safety functions are listed as comments, never implemented.
-- **Realistic 3D** (`frontend/src/render/`, v0.3). A procedural render: every flow station becomes a
-  "balcony" module (base cabinet with louvres and accent stripe, mechanism plate, upper cabinet,
-  glass guard), components become recognisable models placed on the plate, empty cells get
-  generic hardware, transport stations become conveyors, plus HMI arm, stack light, reels and moving
-  products. Next level: vendor CAD models for catalog parts.
+- **Realistic 3D** (v0.3, **removed 2026-10-21**). A procedural render that drew the same cabinet
+  for every station, filled empty space with generic hardware and chose product shapes from the
+  machine name. It showed nothing the model knew. Replaced in the plan by a backend scene JSON
+  rendered by the frontend (Phase 4, ADR 0009).
 
 ## Recommendation
 
