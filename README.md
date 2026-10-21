@@ -174,7 +174,7 @@ examples/                sample price list
 
 The plan from here is `docs/PLAN.md`, section 5:
 
-- [ ] Phase 0: cleanup and guardrails (in progress)
+- [x] Phase 0: cleanup and guardrails — done 2026-10-21
 - [ ] Phase 1: model v2 (product, process graph, mechanisms, structured roles), patch-based AI edits, OpenAI + Gemini providers
 - [ ] Phase 2: timing engine (motion profiles → cycle time → timing diagram)
 - [ ] Phase 3: throughput engine (discrete-event, SimPy) with results diffed per revision

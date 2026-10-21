@@ -1,6 +1,8 @@
 # Phase 0: cleanup and guardrails
 
-Status: in progress (started 2026-10-21). Plan reference: `docs/PLAN.md` section 5, Phase 0.
+Status: **done** 2026-10-21 (verified in the running app with the mock provider; the v0.3
+database migration is covered by `tests/test_migration.py`, no v0.3 database exists on the
+current machine). Plan reference: `docs/PLAN.md` section 5, Phase 0.
 
 ## Goal
 
