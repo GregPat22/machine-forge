@@ -5,8 +5,7 @@ blisters"), get a first machine design, and refine it by prompting until it's ri
 revision comes with a **spare-parts catalog**, and each part is compared across **your current
 suppliers and external vendors** to find the best offer.
 
-Think special-purpose machines like the ones IMA, Marchesini or Syntegon build: packaging,
-filling, assembly, inspection.
+Think special-purpose machines: packaging, filling, assembly, inspection.
 
 > Status: **v0.3, prototype.** Design loop with live progress, revisions and diffs, realistic and
 > concept 3D, 2D top view (SVG/DXF), technical documents (Word, with your company template), PLC
