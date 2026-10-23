@@ -22,6 +22,8 @@
   ratings. Do not touch them unless the spec names them.
 - No confidential data (machine specs, BOMs, CAD, prices from employers or customers) in the repo,
   tests, issues or commits. Public sources only, cited.
+- When Greg says we've made a decision, write a new short note in `docs/adr/` with the next
+  number: what we decided, the options, and why. Never edit old notes.
 
 ## Run and test
 
