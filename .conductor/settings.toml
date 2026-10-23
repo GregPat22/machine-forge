@@ -1,0 +1,34 @@
+"$schema" = "https://conductor.build/schemas/settings.repo.schema.json"
+
+# Gitignored env files (API keys, MF_* config). Copied, never stored here.
+file_include_globs = """
+.env
+backend/.env
+"""
+
+[scripts]
+setup = """
+set -e
+(cd backend && python3 -m venv .venv && .venv/bin/pip install -q -e ".[dev]")
+(cd frontend && npm ci)
+"""
+run_mode = "concurrent"
+archive = ""
+
+[scripts.run.dev]
+available_in = [ "local" ]
+default = true
+icon = "play"
+command = """
+# Per-workspace database: exported env vars beat anything in backend/.env.
+export MF_DB_PATH="$CONDUCTOR_WORKSPACE_PATH/backend/data/machine-forge.db"
+export MF_CORS_ORIGINS="http://localhost:$((CONDUCTOR_PORT+1))"
+export MF_API_URL="http://localhost:$CONDUCTOR_PORT"
+(cd backend && exec .venv/bin/uvicorn app.main:create_app --factory --reload --reload-dir app --timeout-graceful-shutdown 2 --port "$CONDUCTOR_PORT") &
+BACKEND_PID=$!
+(cd frontend && exec node_modules/.bin/vite --port "$((CONDUCTOR_PORT+1))" --strictPort) &
+FRONTEND_PID=$!
+# Stop only the two processes started above, not the whole process group.
+trap 'kill "$BACKEND_PID" "$FRONTEND_PID" 2>/dev/null' EXIT INT TERM
+wait
+"""
