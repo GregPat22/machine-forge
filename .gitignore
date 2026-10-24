@@ -26,3 +26,4 @@ Thumbs.db
 .idea/
 .vscode/
 *.tsbuildinfo
+.conductor/settings.local.toml
