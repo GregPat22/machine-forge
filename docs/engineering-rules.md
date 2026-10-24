@@ -35,8 +35,14 @@ v0.3) and section 7.
    evaluations are a separate, optional job.
    *Check:* CI has no secrets; a test that needs one is a bug.
 
-7. **Schema changes ship with a migration, defaults, and a `schema_version` bump.**
-   *Check:* `tests/test_migration.py` opens a database from the previous version.
+7. **Model changes ship with defaults, a migration, and a `schema_version` bump.** Every new
+   field on a stored model has a default value. `schema_version` is bumped. A migration step
+   brings old data up to date,
+   and a test opens a database from the previous version and checks that the data still reads back.
+   *Check:* `tests/test_migration.py` builds a v0.3 database in code (the v0.3 schema is pasted
+   into the test), opens it with the current `Storage`, and asserts that the data reads back,
+   the migrated columns exist, and the stored `schema_version` is set. It does not yet load a
+   committed database file, and only v0.3 is covered (see `docs/parking-lot.md`).
 
 8. **Frozen modules stay frozen.** `app/suppliers/`, `services/rfq.py`, `services/plc.py`,
    supplier ratings: bug fixes only until a spec reopens them.

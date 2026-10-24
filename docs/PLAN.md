@@ -446,7 +446,9 @@ These go into `docs/engineering-rules.md` and `CLAUDE.md`. Reviewers reject PRs 
    cases raise instead of approximating.
 6. **Tests need no network or keys.** Recorded payloads and mock providers only. Live evals are
    separate and optional.
-7. **Schema changes ship with a migration and defaults**, and `schema_version` bumps.
+7. **Model changes ship with defaults, a migration, and a `schema_version` bump.** Every new
+   field on a stored model has a default value, a migration step brings old data up to date,
+   and a test opens a database from the previous version and checks that the data still reads back.
 8. **Frozen modules stay frozen.** Connectors, ratings, RFQ, PLC: bug fixes only.
 9. **One phase at a time, tests before code.** Each phase gets a spec file under
    `docs/specs/phase-N.md` with the acceptance tests listed; agents implement to the tests.

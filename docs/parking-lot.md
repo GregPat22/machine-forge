@@ -49,3 +49,4 @@ titles in `rfq.py`, and `plc.py:352` (filters on generated station codes, not la
 - Rule 1 (no behaviour from display names) has no automated test. `tests/test_repo_rules.py`
   only checks rule 4 (no import of the deleted render). Phase 1 item: write the grep test for
   rule 1 together with the `io_points.py` fix, so it can start with no allowlist.
+- Rule 7: `tests/test_migration.py` builds the v0.3 database in code. Add a committed old-database fixture and test for rule 7.
