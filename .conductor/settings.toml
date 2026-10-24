@@ -32,3 +32,47 @@ FRONTEND_PID=$!
 trap 'kill "$BACKEND_PID" "$FRONTEND_PID" 2>/dev/null' EXIT INT TERM
 wait
 """
+
+# Default first: the Vite app. The API entry is the FastAPI docs page.
+[[preview_urls]]
+name = "App"
+url = "http://localhost:$((CONDUCTOR_PORT + 1))"
+
+[[preview_urls]]
+name = "API"
+url = "http://localhost:$CONDUCTOR_PORT/docs"
+
+# Agents must never call a paid LLM provider by accident.
+[environment_variables.local]
+MF_LLM_PROVIDER = "mock"
+
+[git]
+worktree_push_auto_setup_remote = true
+
+[prompts]
+general = """
+Before starting, read docs/PLAN.md, docs/engineering-rules.md, the spec for the current phase (docs/specs/phase-N.md, see Status in README.md) and CLAUDE.md.
+- One concern per change. Do only what the spec says.
+- Do not touch anything the task did not list, including frozen modules.
+- If a change involves the schema (models.py), the prompts or the viewer, present an implementation plan and wait for my explicit approval before modifying any files.
+- Before committing, show the relevant diff and wait for my explicit approval. Silence is never approval: if I have not clearly said yes, do not proceed.
+- Run the relevant tests and show the actual commands, their output and their exit codes.
+- Distinguish failures you introduced from failures that already existed. Before calling a failure pre-existing, show evidence, for example the same failure on a clean checkout of the base branch (git stash is shared between worktrees, so use a temporary worktree or checkout, not bare git stash).
+- Never replace test evidence with a general statement that tests passed.
+"""
+
+code_review = """
+Review the diff against each rule in docs/engineering-rules.md, one by one. Name every rule that is broken, with file and line.
+Also flag:
+- behavior driven by labels, names or free text instead of structured fields;
+- silent approximations, swallowed errors or fallbacks where an engine should raise;
+- changes unrelated to the stated concern.
+"""
+
+rename_branch = """
+Name the branch phase-N-short-topic, for example phase-1-patch-validator. N is the current phase, the topic is two to four lowercase words joined by hyphens.
+"""
+
+resolve_merge_conflicts = """
+Never resolve conflicts in backend/app/models.py, anything under engines/, or the prompts without first showing me both sides of each conflict and waiting for my decision. Other files may be resolved normally, but keep both sides' intent and run the tests afterwards.
+"""
