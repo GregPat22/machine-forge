@@ -6,6 +6,8 @@
 2. `docs/engineering-rules.md`: the twelve rules every PR is checked against.
 3. `docs/specs/phase-N.md` for the current phase (see "Status" in `README.md`). Do only what
    the spec says. No "while we are here" refactors.
+4. `docs/workflow.md`: how work is reported and approved. Greg does not read code. Never
+   commit, push, merge or approve without his go-ahead; end every step with the report.
 
 ## Non-negotiable
 
@@ -23,7 +25,7 @@
 - No confidential data (machine specs, BOMs, CAD, prices from employers or customers) in the repo,
   tests, issues or commits. Public sources only, cited.
 - When Greg says we've made a decision, write a new short note in `docs/adr/` with the next
-  four-digit number (0011 is next): what we decided, the options, and why. Two short paragraphs.
+  four-digit number (0012 is next): what we decided, the options, and why. Two short paragraphs.
   Never edit old notes. If a decision replaces an older one, the new note says so.
 
 ## Run and test
