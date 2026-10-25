@@ -141,13 +141,13 @@ def cycle_check(design: MachineDesign) -> list[str]:
     cycles_per_min = 60 / (slowest.cycle_time_s or 1)
     lines = [f"Slowest station: {slowest.name} at {slowest.cycle_time_s:g} s/cycle, "
              f"so the line can run at most {cycles_per_min:.1f} cycles/min."]
-    match = re.search(r"(\d[\d.,]*)\s*([^/]*)/\s*(min|h)", design.throughput or "")
+    match = re.search(r"(\d[\d.,]*)\s*([^/]*)/\s*(min|h)", design.target_rate_text or "")
     if match:
         required = float(match.group(1).replace(",", "."))
         per_min = required if match.group(3) == "min" else required / 60
         per_cycle = per_min / cycles_per_min
         unit = match.group(2).strip() or "products"
-        lines.append(f"Required throughput {design.throughput} → each cycle must handle at least "
+        lines.append(f"Required throughput {design.target_rate_text} → each cycle must handle at least "
                      f"{per_cycle:.1f} {unit} (multiple lanes or products per cycle).")
     return lines
 
@@ -168,8 +168,8 @@ def build_document(design: MachineDesign, revision: int) -> TechnicalDocument:
     )
     overview = DocTable(columns=["Property", "Value"], rows=[
         ["Machine type", design.machine_type],
-        ["Product", design.product],
-        ["Throughput", design.throughput or "to be defined"],
+        ["Product", design.product.description or "—"],
+        ["Throughput", design.target_rate_text or "to be defined"],
         ["Footprint", footprint],
         ["Layout", "U-shape" if design.layout_style == "u_shape" else "Inline"],
         ["Process stations", str(len(flow))],

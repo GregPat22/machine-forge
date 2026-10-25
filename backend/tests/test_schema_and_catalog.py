@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.llm.mock import _initial_design
-from app.models import Component, DesignUpdate, MachineDesign, Station
+from app.models import Component, DesignUpdate, MachineDesign, Station, Transport
 from app.schema import strict_schema
 from app.services.spare_parts import build_catalog
 from tests.conftest import BLISTER_PROBLEM
@@ -35,14 +35,15 @@ def test_strict_schema_meets_structured_output_rules() -> None:
 def test_catalog_merges_same_part_number_across_stations() -> None:
     relay = dict(category="safety", manufacturer="Pilz", part_number="750104", criticality="B", recommended_spares=1)
     design = MachineDesign(
-        name="t", machine_type="t", summary="t", product="t",
+        name="t", machine_type="t", summary="t",
         stations=[
-            Station(id="a", name="A", sequence=1, function="f",
+            Station(id="a", name="A", function="f",
                     components=[Component(id="r1", name="Relay", quantity=1, **relay)]),
-            Station(id="b", name="B", sequence=2, function="f",
+            Station(id="b", name="B", function="f",
                     components=[Component(id="r2", name="Relay", quantity=2,
                                           **{**relay, "part_number": "750-104", "criticality": "A"})]),
         ],
+        transports=[Transport(id="ab", from_station="a", to_station="b")],
     )
     [part] = build_catalog(design)
     assert part.quantity_in_machine == 3
@@ -55,6 +56,6 @@ def test_demo_design_has_infrastructure_and_throughput() -> None:
     design = _initial_design(BLISTER_PROBLEM)
     ids = {s.id for s in design.stations}
     assert {"st-control", "st-safety", "st-frame"} <= ids
-    assert design.throughput == "300 tablets/min"
+    assert design.target_rate_text == "300 tablets/min"
     catalog = build_catalog(design)
     assert any(p.wear_part and p.recommended_spares > 0 for p in catalog)

@@ -73,6 +73,6 @@ def test_zip_contains_st_files_xml_and_readme() -> None:
 
 
 def test_empty_design_still_generates() -> None:
-    project = generate(MachineDesign(name="t", machine_type="t", summary="t", product="t"), 1)
+    project = generate(MachineDesign(name="t", machine_type="t", summary="t"), 1)
     assert any("no flow stations" in w for w in project.warnings)
-    ET.fromstring(to_plcopen_xml(MachineDesign(name="t", machine_type="t", summary="t", product="t"), "t"))
+    ET.fromstring(to_plcopen_xml(MachineDesign(name="t", machine_type="t", summary="t"), "t"))

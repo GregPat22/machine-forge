@@ -19,6 +19,8 @@ frontend/dist/
 backend/data/
 *.db
 *.db-journal
+# Old-database fixtures for the migration tests (engineering rule 7): synthetic, committed.
+!backend/tests/fixtures/**/*.db
 
 # OS / editors
 .DS_Store

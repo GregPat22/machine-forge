@@ -1,0 +1,686 @@
+{
+ "name": "Thermoforming blister packaging machine (demo)",
+ "machine_type": "Thermoforming blister packaging machine",
+ "summary": "Demo design generated offline for: We need to pack 300 tablets per minute into PVC/Alu blisters of 10 for a pharma customer.",
+ "product": "blisters",
+ "throughput": "300 tablets/min",
+ "footprint": null,
+ "layout_style": "u_shape",
+ "stations": [
+  {
+   "id": "st-forming",
+   "name": "Film unwind and forming",
+   "kind": "process",
+   "sequence": 1,
+   "function": "Unwinds PVC film, heats it and thermoforms the blister cavities",
+   "cycle_time_s": 1.2,
+   "length_mm": 1800.0,
+   "width_mm": 900.0,
+   "height_mm": 1900.0,
+   "components": [
+    {
+     "id": "forming-heater",
+     "name": "Contact heating plates",
+     "category": "heating",
+     "quantity": 2,
+     "specs": [
+      {
+       "name": "power",
+       "value": "1.5 kW"
+      },
+      {
+       "name": "max temp",
+       "value": "160 C"
+      }
+     ],
+     "manufacturer": null,
+     "part_number": null,
+     "make_or_buy": "buy",
+     "wear_part": true,
+     "criticality": "A",
+     "recommended_spares": 1,
+     "notes": null
+    },
+    {
+     "id": "forming-die",
+     "name": "Forming die (format part)",
+     "category": "custom_part",
+     "quantity": 1,
+     "specs": [
+      {
+       "name": "material",
+       "value": "aluminium 7075"
+      }
+     ],
+     "manufacturer": null,
+     "part_number": null,
+     "make_or_buy": "make",
+     "wear_part": false,
+     "criticality": "A",
+     "recommended_spares": 0,
+     "notes": null
+    },
+    {
+     "id": "forming-servo",
+     "name": "Film index servo",
+     "category": "servo_motor",
+     "quantity": 1,
+     "specs": [
+      {
+       "name": "rated torque",
+       "value": "6 Nm"
+      },
+      {
+       "name": "feedback",
+       "value": "absolute encoder"
+      }
+     ],
+     "manufacturer": "Siemens",
+     "part_number": null,
+     "make_or_buy": "buy",
+     "wear_part": false,
+     "criticality": "A",
+     "recommended_spares": 1,
+     "notes": null
+    },
+    {
+     "id": "forming-cyl",
+     "name": "Forming station cylinder",
+     "category": "pneumatic_actuator",
+     "quantity": 1,
+     "specs": [
+      {
+       "name": "bore",
+       "value": "80 mm"
+      },
+      {
+       "name": "stroke",
+       "value": "50 mm"
+      }
+     ],
+     "manufacturer": "Festo",
+     "part_number": null,
+     "make_or_buy": "buy",
+     "wear_part": false,
+     "criticality": "A",
+     "recommended_spares": 1,
+     "notes": null
+    }
+   ]
+  },
+  {
+   "id": "st-feeding",
+   "name": "Product feeding",
+   "kind": "process",
+   "sequence": 2,
+   "function": "Fills each cavity with one product",
+   "cycle_time_s": 1.2,
+   "length_mm": 1200.0,
+   "width_mm": 900.0,
+   "height_mm": 1700.0,
+   "components": [
+    {
+     "id": "feeder-brush",
+     "name": "Brush feeder",
+     "category": "dosing",
+     "quantity": 1,
+     "specs": [
+      {
+       "name": "width",
+       "value": "250 mm"
+      }
+     ],
+     "manufacturer": null,
+     "part_number": null,
+     "make_or_buy": "buy",
+     "wear_part": true,
+     "criticality": "B",
+     "recommended_spares": 1,
+     "notes": null
+    },
+    {
+     "id": "feeder-motor",
+     "name": "Brush feeder gearmotor",
+     "category": "motor",
+     "quantity": 1,
+     "specs": [
+      {
+       "name": "power",
+       "value": "0.37 kW"
+      },
+      {
+       "name": "voltage",
+       "value": "400 V"
+      }
+     ],
+     "manufacturer": "SEW-Eurodrive",
+     "part_number": null,
+     "make_or_buy": "buy",
+     "wear_part": false,
+     "criticality": "B",
+     "recommended_spares": 0,
+     "notes": null
+    },
+    {
+     "id": "feeder-check",
+     "name": "Empty cavity sensor",
+     "category": "sensor",
+     "quantity": 4,
+     "specs": [
+      {
+       "name": "type",
+       "value": "diffuse photoelectric"
+      },
+      {
+       "name": "IP",
+       "value": "IP67"
+      }
+     ],
+     "manufacturer": "SICK",
+     "part_number": null,
+     "make_or_buy": "buy",
+     "wear_part": false,
+     "criticality": "B",
+     "recommended_spares": 2,
+     "notes": null
+    }
+   ]
+  },
+  {
+   "id": "st-sealing",
+   "name": "Lidding and sealing",
+   "kind": "process",
+   "sequence": 3,
+   "function": "Seals aluminium lidding foil onto the formed web",
+   "cycle_time_s": 1.2,
+   "length_mm": 1000.0,
+   "width_mm": 900.0,
+   "height_mm": 1800.0,
+   "components": [
+    {
+     "id": "sealing-plate",
+     "name": "Heated sealing plate",
+     "category": "sealing",
+     "quantity": 1,
+     "specs": [
+      {
+       "name": "power",
+       "value": "2 kW"
+      },
+      {
+       "name": "pattern",
+       "value": "knurled"
+      }
+     ],
+     "manufacturer": null,
+     "part_number": null,
+     "make_or_buy": "make",
+     "wear_part": true,
+     "criticality": "A",
+     "recommended_spares": 1,
+     "notes": null
+    },
+    {
+     "id": "sealing-cyl",
+     "name": "Sealing cylinder",
+     "category": "pneumatic_actuator",
+     "quantity": 1,
+     "specs": [
+      {
+       "name": "bore",
+       "value": "100 mm"
+      },
+      {
+       "name": "stroke",
+       "value": "40 mm"
+      }
+     ],
+     "manufacturer": "Festo",
+     "part_number": null,
+     "make_or_buy": "buy",
+     "wear_part": false,
+     "criticality": "A",
+     "recommended_spares": 1,
+     "notes": null
+    },
+    {
+     "id": "sealing-tc",
+     "name": "Thermocouple type J",
+     "category": "sensor",
+     "quantity": 2,
+     "specs": [
+      {
+       "name": "type",
+       "value": "J"
+      },
+      {
+       "name": "length",
+       "value": "100 mm"
+      }
+     ],
+     "manufacturer": null,
+     "part_number": null,
+     "make_or_buy": "buy",
+     "wear_part": true,
+     "criticality": "A",
+     "recommended_spares": 2,
+     "notes": null
+    }
+   ]
+  },
+  {
+   "id": "st-cutting",
+   "name": "Punching",
+   "kind": "process",
+   "sequence": 4,
+   "function": "Punches individual blisters out of the web",
+   "cycle_time_s": 1.2,
+   "length_mm": 900.0,
+   "width_mm": 900.0,
+   "height_mm": 1700.0,
+   "components": [
+    {
+     "id": "punch-tool",
+     "name": "Punching tool (format part)",
+     "category": "cutting",
+     "quantity": 1,
+     "specs": [
+      {
+       "name": "material",
+       "value": "tool steel"
+      }
+     ],
+     "manufacturer": null,
+     "part_number": null,
+     "make_or_buy": "make",
+     "wear_part": true,
+     "criticality": "A",
+     "recommended_spares": 1,
+     "notes": null
+    },
+    {
+     "id": "punch-servo",
+     "name": "Punch drive servo",
+     "category": "servo_motor",
+     "quantity": 1,
+     "specs": [
+      {
+       "name": "rated torque",
+       "value": "10 Nm"
+      },
+      {
+       "name": "feedback",
+       "value": "absolute encoder"
+      }
+     ],
+     "manufacturer": "Siemens",
+     "part_number": null,
+     "make_or_buy": "buy",
+     "wear_part": false,
+     "criticality": "A",
+     "recommended_spares": 1,
+     "notes": null
+    }
+   ]
+  },
+  {
+   "id": "st-outfeed",
+   "name": "Outfeed and reject",
+   "kind": "transport",
+   "sequence": 5,
+   "function": "Conveys good product out and rejects faulty product",
+   "cycle_time_s": null,
+   "length_mm": 1500.0,
+   "width_mm": 500.0,
+   "height_mm": 1000.0,
+   "components": [
+    {
+     "id": "out-belt",
+     "name": "Outfeed conveyor belt",
+     "category": "conveyor",
+     "quantity": 1,
+     "specs": [
+      {
+       "name": "width",
+       "value": "200 mm"
+      },
+      {
+       "name": "length",
+       "value": "1.5 m"
+      }
+     ],
+     "manufacturer": null,
+     "part_number": null,
+     "make_or_buy": "buy",
+     "wear_part": true,
+     "criticality": "B",
+     "recommended_spares": 1,
+     "notes": null
+    },
+    {
+     "id": "out-motor",
+     "name": "Conveyor gearmotor",
+     "category": "motor",
+     "quantity": 1,
+     "specs": [
+      {
+       "name": "power",
+       "value": "0.25 kW"
+      }
+     ],
+     "manufacturer": "SEW-Eurodrive",
+     "part_number": null,
+     "make_or_buy": "buy",
+     "wear_part": false,
+     "criticality": "B",
+     "recommended_spares": 0,
+     "notes": null
+    },
+    {
+     "id": "reject-cyl",
+     "name": "Reject pusher cylinder",
+     "category": "pneumatic_actuator",
+     "quantity": 1,
+     "specs": [
+      {
+       "name": "bore",
+       "value": "25 mm"
+      },
+      {
+       "name": "stroke",
+       "value": "100 mm"
+      }
+     ],
+     "manufacturer": "Festo",
+     "part_number": null,
+     "make_or_buy": "buy",
+     "wear_part": false,
+     "criticality": "B",
+     "recommended_spares": 1,
+     "notes": null
+    }
+   ]
+  },
+  {
+   "id": "st-frame",
+   "name": "Machine frame",
+   "kind": "frame",
+   "sequence": 0,
+   "function": "Welded base frame and stainless steel cladding",
+   "cycle_time_s": null,
+   "length_mm": null,
+   "width_mm": null,
+   "height_mm": null,
+   "components": [
+    {
+     "id": "frame-base",
+     "name": "Welded base frame",
+     "category": "frame_structure",
+     "quantity": 1,
+     "specs": [
+      {
+       "name": "material",
+       "value": "AISI 304"
+      }
+     ],
+     "manufacturer": null,
+     "part_number": null,
+     "make_or_buy": "make",
+     "wear_part": false,
+     "criticality": "C",
+     "recommended_spares": 0,
+     "notes": null
+    },
+    {
+     "id": "frame-feet",
+     "name": "Levelling feet",
+     "category": "frame_structure",
+     "quantity": 6,
+     "specs": [
+      {
+       "name": "load",
+       "value": "1000 kg"
+      }
+     ],
+     "manufacturer": "Elesa+Ganter",
+     "part_number": null,
+     "make_or_buy": "buy",
+     "wear_part": false,
+     "criticality": "C",
+     "recommended_spares": 0,
+     "notes": null
+    }
+   ]
+  },
+  {
+   "id": "st-control",
+   "name": "Control cabinet",
+   "kind": "control",
+   "sequence": 0,
+   "function": "PLC, drives, power distribution and HMI",
+   "cycle_time_s": null,
+   "length_mm": 1600.0,
+   "width_mm": 600.0,
+   "height_mm": 2000.0,
+   "components": [
+    {
+     "id": "plc-cpu",
+     "name": "PLC CPU",
+     "category": "plc",
+     "quantity": 1,
+     "specs": [
+      {
+       "name": "family",
+       "value": "SIMATIC S7-1500"
+      }
+     ],
+     "manufacturer": "Siemens",
+     "part_number": "6ES7515-2AM02-0AB0",
+     "make_or_buy": "buy",
+     "wear_part": false,
+     "criticality": "A",
+     "recommended_spares": 1,
+     "notes": null
+    },
+    {
+     "id": "servo-drives",
+     "name": "Servo drives",
+     "category": "drive",
+     "quantity": 4,
+     "specs": [
+      {
+       "name": "family",
+       "value": "SINAMICS S210"
+      }
+     ],
+     "manufacturer": "Siemens",
+     "part_number": null,
+     "make_or_buy": "buy",
+     "wear_part": false,
+     "criticality": "A",
+     "recommended_spares": 1,
+     "notes": null
+    },
+    {
+     "id": "hmi",
+     "name": "HMI touch panel",
+     "category": "hmi",
+     "quantity": 1,
+     "specs": [
+      {
+       "name": "size",
+       "value": "15 in"
+      }
+     ],
+     "manufacturer": "Siemens",
+     "part_number": null,
+     "make_or_buy": "buy",
+     "wear_part": false,
+     "criticality": "B",
+     "recommended_spares": 0,
+     "notes": null
+    },
+    {
+     "id": "psu",
+     "name": "24 V DC power supply",
+     "category": "electrical",
+     "quantity": 1,
+     "specs": [
+      {
+       "name": "current",
+       "value": "20 A"
+      }
+     ],
+     "manufacturer": "Phoenix Contact",
+     "part_number": null,
+     "make_or_buy": "buy",
+     "wear_part": false,
+     "criticality": "A",
+     "recommended_spares": 1,
+     "notes": null
+    }
+   ]
+  },
+  {
+   "id": "st-safety",
+   "name": "Safety",
+   "kind": "safety",
+   "sequence": 0,
+   "function": "Guarding, interlocked doors and emergency stop",
+   "cycle_time_s": null,
+   "length_mm": null,
+   "width_mm": null,
+   "height_mm": null,
+   "components": [
+    {
+     "id": "safety-relay",
+     "name": "Safety relay",
+     "category": "safety",
+     "quantity": 1,
+     "specs": [
+      {
+       "name": "contacts",
+       "value": "3 NO + 1 NC"
+      },
+      {
+       "name": "supply",
+       "value": "24 V DC"
+      }
+     ],
+     "manufacturer": "Pilz",
+     "part_number": "750104",
+     "make_or_buy": "buy",
+     "wear_part": false,
+     "criticality": "A",
+     "recommended_spares": 1,
+     "notes": null
+    },
+    {
+     "id": "door-switch",
+     "name": "Interlock door switch",
+     "category": "safety",
+     "quantity": 4,
+     "specs": [
+      {
+       "name": "type",
+       "value": "RFID coded"
+      }
+     ],
+     "manufacturer": "Schmersal",
+     "part_number": null,
+     "make_or_buy": "buy",
+     "wear_part": false,
+     "criticality": "A",
+     "recommended_spares": 1,
+     "notes": null
+    },
+    {
+     "id": "guards",
+     "name": "Polycarbonate guards",
+     "category": "guarding",
+     "quantity": 4,
+     "specs": [
+      {
+       "name": "thickness",
+       "value": "6 mm"
+      }
+     ],
+     "manufacturer": null,
+     "part_number": null,
+     "make_or_buy": "make",
+     "wear_part": false,
+     "criticality": "C",
+     "recommended_spares": 0,
+     "notes": null
+    }
+   ]
+  },
+  {
+   "id": "st-pneumatics",
+   "name": "Compressed air",
+   "kind": "utility",
+   "sequence": 0,
+   "function": "Air treatment and valve terminal",
+   "cycle_time_s": null,
+   "length_mm": 800.0,
+   "width_mm": 300.0,
+   "height_mm": 1000.0,
+   "components": [
+    {
+     "id": "air-frl",
+     "name": "Filter regulator unit",
+     "category": "air_treatment",
+     "quantity": 1,
+     "specs": [
+      {
+       "name": "port",
+       "value": "G1/2"
+      },
+      {
+       "name": "filter",
+       "value": "5 um"
+      }
+     ],
+     "manufacturer": "Festo",
+     "part_number": null,
+     "make_or_buy": "buy",
+     "wear_part": false,
+     "criticality": "A",
+     "recommended_spares": 0,
+     "notes": null
+    },
+    {
+     "id": "valve-terminal",
+     "name": "Valve terminal",
+     "category": "pneumatic_valve",
+     "quantity": 1,
+     "specs": [
+      {
+       "name": "valves",
+       "value": "8"
+      },
+      {
+       "name": "bus",
+       "value": "PROFINET"
+      }
+     ],
+     "manufacturer": "Festo",
+     "part_number": null,
+     "make_or_buy": "buy",
+     "wear_part": false,
+     "criticality": "A",
+     "recommended_spares": 1,
+     "notes": null
+    }
+   ]
+  }
+ ],
+ "utilities": [
+  "400 V 3~ 50 Hz",
+  "6 bar dry compressed air"
+ ],
+ "assumptions": [
+  "Generated by the offline demo engine, not by an AI model."
+ ],
+ "open_questions": []
+}

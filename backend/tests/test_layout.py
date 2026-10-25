@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from app.llm.mock import _initial_design
-from app.models import MachineDesign, Station
+from app.models import MachineDesign, Station, Transport
 from app.services.layout import DEFAULT_ENVELOPE, compute_layout
 from tests.conftest import BLISTER_PROBLEM
 
@@ -43,15 +43,15 @@ def test_u_shape_uses_two_rows_and_returns() -> None:
 
 
 def test_defaults_and_clamping_for_missing_or_absurd_envelopes() -> None:
-    design = MachineDesign(name="t", machine_type="t", summary="t", product="t", stations=[
-        Station(id="a", name="A", sequence=1, function="f"),
-        Station(id="b", name="B", sequence=2, function="f", length_mm=1e9, width_mm=-5, height_mm=None),
-    ])
+    design = MachineDesign(name="t", machine_type="t", summary="t", stations=[
+        Station(id="a", name="A", function="f"),
+        Station(id="b", name="B", function="f", length_mm=1e9, width_mm=-5, height_mm=None),
+    ], transports=[Transport(id="ab", from_station="a", to_station="b")])
     a, b = _flow_boxes(compute_layout(design))
     assert (a.length, a.width, a.height) == DEFAULT_ENVELOPE["process"]
     assert b.length == 20000 and b.width == DEFAULT_ENVELOPE["process"][1]
 
 
 def test_empty_design_has_empty_layout() -> None:
-    layout = compute_layout(MachineDesign(name="t", machine_type="t", summary="t", product="t"))
+    layout = compute_layout(MachineDesign(name="t", machine_type="t", summary="t"))
     assert layout.boxes == [] and layout.flow == [] and layout.footprint_length_mm == 0

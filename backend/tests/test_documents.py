@@ -5,16 +5,17 @@ import io
 from docx import Document
 
 from app.llm.mock import _initial_design
-from app.models import Component, MachineDesign, Spec, Station
+from app.models import Component, MachineDesign, Product, Spec, Station, Step
 from app.services.documents import build_document, cycle_check, io_list, safety_function_rows, to_docx, to_markdown
 from tests.conftest import BLISTER_PROBLEM
 
 
 def _small_design() -> MachineDesign:
     return MachineDesign(
-        name="Test", machine_type="t", summary="s", product="p", throughput="120 parts/min",
+        name="Test", machine_type="t", summary="s", product=Product(description="p"), target_rate_text="120 parts/min",
         stations=[
-            Station(id="s1", name="Press", sequence=1, function="f", cycle_time_s=1.0, components=[
+            Station(id="s1", name="Press", function="f", steps=[Step(id="t", order=1, kind="fixed_duration", duration_s=1.0)],
+                    components=[
                 Component(id="cyl", name="Cylinder", category="pneumatic_actuator", quantity=2),
                 Component(id="tc", name="Thermocouple", category="sensor", quantity=1,
                           specs=[Spec(name="type", value="J")]),
@@ -22,7 +23,7 @@ def _small_design() -> MachineDesign:
                 Component(id="heater", name="Heater", category="heating", quantity=1,
                           specs=[Spec(name="power", value="1 kW")]),
             ]),
-            Station(id="safe", name="Safety", kind="safety", sequence=0, function="f", components=[
+            Station(id="safe", name="Safety", kind="safety", function="f", components=[
                 Component(id="door", name="Door switch", category="safety", quantity=2),
             ]),
         ],

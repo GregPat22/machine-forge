@@ -6,10 +6,14 @@ import json
 import sqlite3
 from pathlib import Path
 
+from app.migrations.design_v1 import migrate_design
 from app.models import MachineDesign
 from app.llm.mock import _initial_design
 from app.storage import DEFAULT_WORKSPACE, DESIGN_SCHEMA_VERSION, MIGRATIONS, Storage
 from tests.conftest import BLISTER_PROBLEM
+
+# A design as the v1 code wrote it (see tests/fixtures/v1/make_fixtures.py).
+V1_BLISTER = Path(__file__).parent / "fixtures" / "v1" / "designs" / "blister.json"
 
 # The schema exactly as v0.3 (commit 776efa2) created it. Do not edit: it is the fixture.
 V03_SCHEMA = """
@@ -68,14 +72,16 @@ NOW = "2026-10-20T08:00:00+00:00"
 
 
 def _write_v03_database(path: Path) -> MachineDesign:
-    design = _initial_design(BLISTER_PROBLEM)
+    """Write a v0.3 database holding one v1 design; return that design as it reads after migration."""
+    v1_json = V1_BLISTER.read_text()
+    design = migrate_design(json.loads(v1_json), from_version=1)
     conn = sqlite3.connect(path)
     with conn:
         conn.executescript(V03_SCHEMA)
         conn.execute("INSERT INTO projects VALUES (?, ?, ?, ?, ?)", ("abc123", design.name, BLISTER_PROBLEM, NOW, NOW))
         conn.execute(
             "INSERT INTO revisions VALUES (?, ?, ?, ?, ?, ?)",
-            ("abc123", 1, BLISTER_PROBLEM, "First design.", design.model_dump_json(), NOW),
+            ("abc123", 1, BLISTER_PROBLEM, "First design.", v1_json, NOW),
         )
         conn.executemany(
             "INSERT INTO messages (project_id, role, content, revision, created_at) VALUES (?, ?, ?, ?, ?)",
@@ -113,7 +119,7 @@ def test_v03_database_opens_and_reads_projects(tmp_path: Path) -> None:
     assert project.design == design
     assert [m.role for m in project.messages] == ["user", "assistant"]
     revision = storage.get_revision("abc123", 1)
-    assert revision is not None and revision.schema_version == DESIGN_SCHEMA_VERSION
+    assert revision is not None and revision.schema_version == 1  # kept until a new revision is saved
     assert storage.price_list()[0].part_number == "DSBC-80-50"
     assert storage.ratings()["acme"].quality == 4
     assert storage.cached_offers("mouser", "DSBC-80-50", max_age_hours=10**6) == []

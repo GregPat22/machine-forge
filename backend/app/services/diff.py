@@ -6,6 +6,7 @@ A component that moves to another station is reported as modified ("station: A â
 
 from __future__ import annotations
 
+from operator import attrgetter
 from typing import Literal
 
 from pydantic import BaseModel
@@ -14,7 +15,9 @@ from app.models import Component, MachineDesign, Station
 
 ChangeKind = Literal["added", "removed", "modified"]
 
-MACHINE_FIELDS = ("name", "machine_type", "product", "throughput", "footprint", "layout_style", "summary")
+MACHINE_FIELDS = (
+    "name", "machine_type", "product.description", "target_rate_text", "footprint", "layout_style", "summary",
+)
 LIST_FIELDS = ("utilities", "assumptions", "open_questions")
 STATION_FIELDS = ("name", "kind", "sequence", "function", "cycle_time_s", "length_mm", "width_mm", "height_mm")
 COMPONENT_FIELDS = (
@@ -73,7 +76,7 @@ def _fmt(value: object) -> str | None:
 def _field_changes(before: object, after: object, fields: tuple[str, ...]) -> list[FieldChange]:
     changes = []
     for field in fields:
-        a, b = _fmt(getattr(before, field)), _fmt(getattr(after, field))
+        a, b = _fmt(attrgetter(field)(before)), _fmt(attrgetter(field)(after))
         if a != b:
             changes.append(FieldChange(field=field, before=a, after=b))
     return changes
