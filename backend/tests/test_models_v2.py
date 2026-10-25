@@ -54,10 +54,14 @@ def test_sequence_is_derived_from_the_process_graph() -> None:
     loose = _design([_station("new"), _station("a"), _station("b")], [_belt("a", "b")])
     assert {s.id: s.sequence for s in loose.stations} == {"a": 1, "b": 2, "new": 3}
 
-    # A reject branch is part of the graph: the reject station comes after its source.
-    branched = _design([_station("bin", kind="transport"), _station("a"), _station("b")],
-                       [_belt("a", "b", reject_to="bin", reject_rate=0.01)])
-    assert {s.id: s.sequence for s in branched.stations} == {"a": 1, "bin": 2, "b": 3}
+    # A reject branch leaves the main line: the line is numbered first, reject destinations after it.
+    branched = _design([_station("a"), _station("rej", kind="transport"), _station("b"), _station("c")],
+                       [_belt("a", "b", reject_to="rej", reject_rate=0.01), _belt("b", "c")])
+    assert {s.id: s.sequence for s in branched.stations} == {"a": 1, "b": 2, "c": 3, "rej": 4}
+
+    # A rework branch back upstream is not a cycle of the main line.
+    rework = _design([_station("a"), _station("b")], [_belt("a", "b", reject_to="a", reject_rate=0.05)])
+    assert {s.id: s.sequence for s in rework.stations} == {"a": 1, "b": 2}
 
 
 def test_a_cyclic_process_graph_is_rejected() -> None:

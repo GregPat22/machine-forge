@@ -112,7 +112,8 @@ CATEGORY_ROLES: dict[str, ComponentRole | None] = {
     "other": None,
 }
 
-CURRENT_VERSION = 2
+# The one place the current version is defined is the MachineDesign default.
+CURRENT_VERSION: int = MachineDesign.model_fields["schema_version"].default
 
 
 def migrate_design(raw: dict[str, Any], from_version: int) -> MachineDesign:

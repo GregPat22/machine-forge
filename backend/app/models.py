@@ -299,26 +299,26 @@ class MachineDesign(BaseModel):
     def process_order(self) -> dict[str, int]:
         """Position (1, 2, ...) of every node of the process graph, in flow order.
 
-        Nodes are the flow stations (`FLOW_KINDS`) and every id a transport names, including its
-        reject branch (so a reject that loops back upstream is a cycle). Order is topological
-        (Kahn). Ties: nodes connected by a transport before flow stations not connected yet; then
-        the earlier station in `stations`; then ids named by transports but missing from
-        `stations`, in order of appearance. Raises ValueError if the graph has a cycle.
+        Nodes are the flow stations (`FLOW_KINDS`), every station a transport connects, and every
+        reject destination. Order is topological (Kahn) over the transports; reject branches leave
+        the line and do not take part (so a rework branch back upstream is not a cycle). Ties:
+        stations connected by a transport first, then flow stations not connected yet and reject
+        destinations, each group by its place in `stations`; ids named by a transport but missing
+        from `stations` follow in order of appearance. Raises ValueError if the transports form a cycle.
         """
         first_index: dict[str, int] = {}
         for i, station in enumerate(self.stations):
             first_index.setdefault(station.id, i)
         edges = [(t.from_station, t.to_station) for t in self.transports]
-        edges += [(t.from_station, t.reject_to) for t in self.transports if t.reject_to is not None]
+        rejects = [t.reject_to for t in self.transports if t.reject_to is not None]
 
         connected = {node for edge in edges for node in edge}
         rank: dict[str, tuple[bool, int]] = {
             s.id: (s.id not in connected, first_index[s.id]) for s in self.stations if s.kind in FLOW_KINDS
         }
-        for edge in edges:
-            for node in edge:
-                if node not in rank:
-                    rank[node] = (False, first_index.get(node, len(self.stations) + len(rank)))
+        for node in [n for edge in edges for n in edge] + rejects:
+            if node not in rank:
+                rank[node] = (node not in connected, first_index.get(node, len(self.stations) + len(rank)))
         successors: dict[str, list[str]] = {node: [] for node in rank}
         indegree = dict.fromkeys(rank, 0)
         for a, b in edges:
