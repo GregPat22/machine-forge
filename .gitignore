@@ -27,3 +27,4 @@ Thumbs.db
 .vscode/
 *.tsbuildinfo
 .conductor/settings.local.toml
+.claude/settings.local.json

@@ -4,6 +4,7 @@
 file_include_globs = """
 .env
 backend/.env
+.claude/settings.local.json
 """
 
 [scripts]
