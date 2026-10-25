@@ -7,7 +7,8 @@ suppliers and external vendors** to find the best offer.
 
 Think special-purpose machines: packaging, filling, assembly, inspection.
 
-> Status: **Phase 0 done, Phase 1 (model v2 and patch edits) next, see [docs/PLAN.md](docs/PLAN.md).** The project was
+> Status: **Phase 0 done, Phase 1 (model v2 and patch edits) next, see [docs/PLAN.md](docs/PLAN.md)
+> and [docs/specs/phase-1.md](docs/specs/phase-1.md).** The project was
 > redefined on 2026-10-21: AI-assisted concept engineering with real timing, throughput,
 > geometry, BOM and cost, simulated before anything is built. The v0.3 design loop, revisions and
 > diffs, concept 3D, 2D top view (SVG/DXF), technical documents, PLC skeleton, spare-parts catalog
