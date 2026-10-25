@@ -71,7 +71,7 @@ def test_anthropic_request_shape_and_parsing() -> None:
         system="sys", turns=[{"role": "user", "content": "hi"}], output=DesignUpdate
     )
     assert result.reply == "First version."
-    assert result.design.throughput == "300 tablets/min"
+    assert result.design.target_rate_text == "300 tablets/min"
 
     body = seen["body"]
     assert body["model"] == "claude-opus-5-5"

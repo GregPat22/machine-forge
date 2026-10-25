@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 from app.api.suppliers import TEMPLATE_NAME
 from app.llm import LLMError, LLMNotConfigured
 from app.llm.base import Progress, ProgressFn
-from app.models import Project, ProjectSummary, Revision, SourcingReport, SparePart
+from app.models import MachineDesign, Project, ProjectSummary, Revision, SourcingReport, SparePart
 from app.services.designer import Designer, ProjectNotFound
 from app.services.diff import DesignDiff, diff_designs
 from app.services.documents import TechnicalDocument, build_document, to_docx, to_markdown
@@ -57,7 +57,26 @@ def _revision(request: Request, project_id: str, number: int | None) -> Revision
     return revision
 
 
+def _design_out(design: MachineDesign) -> dict:
+    """The design as the API returns it: the stored fields plus, per station, the read-only
+    values derived from the model (`sequence`, `cycle_time_s`, ADR 0012) for display."""
+    data = design.model_dump(mode="json")
+    for station, out in zip(design.stations, data["stations"], strict=True):
+        out["sequence"] = station.sequence
+        out["cycle_time_s"] = station.cycle_time_s
+    return data
+
+
+def _project_out(project: Project) -> dict:
+    return {**project.model_dump(mode="json"), "design": _design_out(project.design)}
+
+
+def _revision_out(revision: Revision) -> dict:
+    return {**revision.model_dump(mode="json"), "design": _design_out(revision.design)}
+
+
 # Endpoints that call the model are plain `def`: FastAPI runs them in a worker thread.
+# Endpoints that return a design return `_project_out`/`_revision_out` dicts, not the models.
 
 
 @router.get("/projects", response_model=list[ProjectSummary])
@@ -65,9 +84,9 @@ def list_projects(request: Request) -> list[ProjectSummary]:
     return request.app.state.mf.storage.list_projects()
 
 
-@router.post("/projects", response_model=Project, status_code=201)
-def create_project(body: NewProject, request: Request) -> Project:
-    return _designer(request).create(body.problem.strip())
+@router.post("/projects", status_code=201)
+def create_project(body: NewProject, request: Request) -> dict:
+    return _project_out(_designer(request).create(body.problem.strip()))
 
 
 def _event_stream(run: Callable[[ProgressFn], Project]) -> StreamingResponse:
@@ -82,7 +101,7 @@ def _event_stream(run: Callable[[ProgressFn], Project]) -> StreamingResponse:
 
     def worker() -> None:
         try:
-            events.put(("done", run(on_progress).model_dump(mode="json")))
+            events.put(("done", _project_out(run(on_progress))))
         except LLMNotConfigured as exc:
             events.put(("error", {"status": 503, "detail": str(exc)}))
         except LLMError as exc:
@@ -125,12 +144,12 @@ def prompt_stream(project_id: str, body: PromptIn, request: Request) -> Streamin
     return _event_stream(lambda progress: designer.refine(project_id, message, on_progress=progress))
 
 
-@router.get("/projects/{project_id}", response_model=Project)
-def get_project(project_id: str, request: Request) -> Project:
+@router.get("/projects/{project_id}")
+def get_project(project_id: str, request: Request) -> dict:
     project = request.app.state.mf.storage.get_project(project_id)
     if project is None:
         raise ProjectNotFound(f"Project {project_id} not found")
-    return project
+    return _project_out(project)
 
 
 @router.delete("/projects/{project_id}", status_code=204)
@@ -140,19 +159,19 @@ def delete_project(project_id: str, request: Request) -> Response:
     return Response(status_code=204)
 
 
-@router.post("/projects/{project_id}/prompt", response_model=Project)
-def prompt(project_id: str, body: PromptIn, request: Request) -> Project:
-    return _designer(request).refine(project_id, body.message.strip())
+@router.post("/projects/{project_id}/prompt")
+def prompt(project_id: str, body: PromptIn, request: Request) -> dict:
+    return _project_out(_designer(request).refine(project_id, body.message.strip()))
 
 
-@router.get("/projects/{project_id}/revisions", response_model=list[Revision])
-def revisions(project_id: str, request: Request) -> list[Revision]:
-    return request.app.state.mf.storage.list_revisions(project_id)
+@router.get("/projects/{project_id}/revisions")
+def revisions(project_id: str, request: Request) -> list[dict]:
+    return [_revision_out(r) for r in request.app.state.mf.storage.list_revisions(project_id)]
 
 
-@router.post("/projects/{project_id}/revisions/{number}/restore", response_model=Project)
-def restore(project_id: str, number: int, request: Request) -> Project:
-    return _designer(request).restore(project_id, number)
+@router.post("/projects/{project_id}/revisions/{number}/restore")
+def restore(project_id: str, number: int, request: Request) -> dict:
+    return _project_out(_designer(request).restore(project_id, number))
 
 
 @router.get("/projects/{project_id}/spare-parts", response_model=list[SparePart])

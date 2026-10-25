@@ -25,9 +25,9 @@ class FakeConnector:
 
 def _design() -> MachineDesign:
     return MachineDesign(
-        name="t", machine_type="t", summary="t", product="t",
+        name="t", machine_type="t", summary="t",
         stations=[
-            Station(id="s", name="Station", sequence=1, function="f", components=[
+            Station(id="s", name="Station", function="f", components=[
                 Component(id="sensor", name="Photoelectric sensor", category="sensor", quantity=4,
                           manufacturer="SICK", part_number="WTB4-3P2161", recommended_spares=2),
                 Component(id="cyl", name="Pneumatic cylinder", category="pneumatic_actuator", quantity=1,

@@ -1,0 +1,550 @@
+{
+ "name": "Rotary filling and capping monoblock (demo)",
+ "machine_type": "Rotary filling and capping monoblock",
+ "summary": "Demo design generated offline for: Fill 60 bottles per minute with 250 ml of liquid soap and cap them.",
+ "product": "bottles",
+ "throughput": "60 bottles/min",
+ "footprint": null,
+ "layout_style": "inline",
+ "stations": [
+  {
+   "id": "st-infeed",
+   "name": "Bottle infeed",
+   "kind": "transport",
+   "sequence": 1,
+   "function": "Spaces bottles with an infeed screw and star wheel",
+   "cycle_time_s": 0.5,
+   "length_mm": 900.0,
+   "width_mm": 700.0,
+   "height_mm": 1400.0,
+   "components": [
+    {
+     "id": "infeed-screw",
+     "name": "Timing screw (format part)",
+     "category": "custom_part",
+     "quantity": 1,
+     "specs": [
+      {
+       "name": "material",
+       "value": "UHMW-PE"
+      }
+     ],
+     "manufacturer": null,
+     "part_number": null,
+     "make_or_buy": "make",
+     "wear_part": true,
+     "criticality": "A",
+     "recommended_spares": 1,
+     "notes": null
+    },
+    {
+     "id": "infeed-servo",
+     "name": "Star wheel servo",
+     "category": "servo_motor",
+     "quantity": 1,
+     "specs": [
+      {
+       "name": "rated torque",
+       "value": "6 Nm"
+      },
+      {
+       "name": "feedback",
+       "value": "absolute encoder"
+      }
+     ],
+     "manufacturer": "Siemens",
+     "part_number": null,
+     "make_or_buy": "buy",
+     "wear_part": false,
+     "criticality": "A",
+     "recommended_spares": 1,
+     "notes": null
+    }
+   ]
+  },
+  {
+   "id": "st-filling",
+   "name": "Filling",
+   "kind": "process",
+   "sequence": 2,
+   "function": "Doses liquid with peristaltic pumps and checkweighs",
+   "cycle_time_s": 0.5,
+   "length_mm": 1400.0,
+   "width_mm": 1400.0,
+   "height_mm": 2000.0,
+   "components": [
+    {
+     "id": "fill-pump",
+     "name": "Peristaltic dosing pump",
+     "category": "pump",
+     "quantity": 4,
+     "specs": [
+      {
+       "name": "accuracy",
+       "value": "+/-0.5 %"
+      }
+     ],
+     "manufacturer": "Watson-Marlow",
+     "part_number": null,
+     "make_or_buy": "buy",
+     "wear_part": false,
+     "criticality": "A",
+     "recommended_spares": 1,
+     "notes": null
+    },
+    {
+     "id": "fill-tube",
+     "name": "Pump tubing",
+     "category": "pump",
+     "quantity": 4,
+     "specs": [
+      {
+       "name": "material",
+       "value": "silicone, pharma grade"
+      }
+     ],
+     "manufacturer": null,
+     "part_number": null,
+     "make_or_buy": "buy",
+     "wear_part": true,
+     "criticality": "A",
+     "recommended_spares": 8,
+     "notes": null
+    },
+    {
+     "id": "fill-cell",
+     "name": "Load cell",
+     "category": "sensor",
+     "quantity": 4,
+     "specs": [
+      {
+       "name": "capacity",
+       "value": "1 kg"
+      }
+     ],
+     "manufacturer": null,
+     "part_number": null,
+     "make_or_buy": "buy",
+     "wear_part": false,
+     "criticality": "B",
+     "recommended_spares": 1,
+     "notes": null
+    }
+   ]
+  },
+  {
+   "id": "st-capping",
+   "name": "Capping",
+   "kind": "process",
+   "sequence": 3,
+   "function": "Places and screws caps with torque control",
+   "cycle_time_s": 0.5,
+   "length_mm": 1200.0,
+   "width_mm": 1400.0,
+   "height_mm": 2000.0,
+   "components": [
+    {
+     "id": "cap-servo",
+     "name": "Capping head servo",
+     "category": "servo_motor",
+     "quantity": 1,
+     "specs": [
+      {
+       "name": "rated torque",
+       "value": "2 Nm"
+      },
+      {
+       "name": "feedback",
+       "value": "absolute encoder"
+      }
+     ],
+     "manufacturer": "Siemens",
+     "part_number": null,
+     "make_or_buy": "buy",
+     "wear_part": false,
+     "criticality": "A",
+     "recommended_spares": 1,
+     "notes": null
+    },
+    {
+     "id": "cap-chuck",
+     "name": "Capping chuck inserts",
+     "category": "custom_part",
+     "quantity": 4,
+     "specs": [
+      {
+       "name": "material",
+       "value": "PU"
+      }
+     ],
+     "manufacturer": null,
+     "part_number": null,
+     "make_or_buy": "make",
+     "wear_part": true,
+     "criticality": "A",
+     "recommended_spares": 4,
+     "notes": null
+    }
+   ]
+  },
+  {
+   "id": "st-outfeed",
+   "name": "Outfeed and reject",
+   "kind": "transport",
+   "sequence": 4,
+   "function": "Conveys good product out and rejects faulty product",
+   "cycle_time_s": null,
+   "length_mm": 1500.0,
+   "width_mm": 500.0,
+   "height_mm": 1000.0,
+   "components": [
+    {
+     "id": "out-belt",
+     "name": "Outfeed conveyor belt",
+     "category": "conveyor",
+     "quantity": 1,
+     "specs": [
+      {
+       "name": "width",
+       "value": "200 mm"
+      },
+      {
+       "name": "length",
+       "value": "1.5 m"
+      }
+     ],
+     "manufacturer": null,
+     "part_number": null,
+     "make_or_buy": "buy",
+     "wear_part": true,
+     "criticality": "B",
+     "recommended_spares": 1,
+     "notes": null
+    },
+    {
+     "id": "out-motor",
+     "name": "Conveyor gearmotor",
+     "category": "motor",
+     "quantity": 1,
+     "specs": [
+      {
+       "name": "power",
+       "value": "0.25 kW"
+      }
+     ],
+     "manufacturer": "SEW-Eurodrive",
+     "part_number": null,
+     "make_or_buy": "buy",
+     "wear_part": false,
+     "criticality": "B",
+     "recommended_spares": 0,
+     "notes": null
+    },
+    {
+     "id": "reject-cyl",
+     "name": "Reject pusher cylinder",
+     "category": "pneumatic_actuator",
+     "quantity": 1,
+     "specs": [
+      {
+       "name": "bore",
+       "value": "25 mm"
+      },
+      {
+       "name": "stroke",
+       "value": "100 mm"
+      }
+     ],
+     "manufacturer": "Festo",
+     "part_number": null,
+     "make_or_buy": "buy",
+     "wear_part": false,
+     "criticality": "B",
+     "recommended_spares": 1,
+     "notes": null
+    }
+   ]
+  },
+  {
+   "id": "st-frame",
+   "name": "Machine frame",
+   "kind": "frame",
+   "sequence": 0,
+   "function": "Welded base frame and stainless steel cladding",
+   "cycle_time_s": null,
+   "length_mm": null,
+   "width_mm": null,
+   "height_mm": null,
+   "components": [
+    {
+     "id": "frame-base",
+     "name": "Welded base frame",
+     "category": "frame_structure",
+     "quantity": 1,
+     "specs": [
+      {
+       "name": "material",
+       "value": "AISI 304"
+      }
+     ],
+     "manufacturer": null,
+     "part_number": null,
+     "make_or_buy": "make",
+     "wear_part": false,
+     "criticality": "C",
+     "recommended_spares": 0,
+     "notes": null
+    },
+    {
+     "id": "frame-feet",
+     "name": "Levelling feet",
+     "category": "frame_structure",
+     "quantity": 6,
+     "specs": [
+      {
+       "name": "load",
+       "value": "1000 kg"
+      }
+     ],
+     "manufacturer": "Elesa+Ganter",
+     "part_number": null,
+     "make_or_buy": "buy",
+     "wear_part": false,
+     "criticality": "C",
+     "recommended_spares": 0,
+     "notes": null
+    }
+   ]
+  },
+  {
+   "id": "st-control",
+   "name": "Control cabinet",
+   "kind": "control",
+   "sequence": 0,
+   "function": "PLC, drives, power distribution and HMI",
+   "cycle_time_s": null,
+   "length_mm": 1600.0,
+   "width_mm": 600.0,
+   "height_mm": 2000.0,
+   "components": [
+    {
+     "id": "plc-cpu",
+     "name": "PLC CPU",
+     "category": "plc",
+     "quantity": 1,
+     "specs": [
+      {
+       "name": "family",
+       "value": "SIMATIC S7-1500"
+      }
+     ],
+     "manufacturer": "Siemens",
+     "part_number": "6ES7515-2AM02-0AB0",
+     "make_or_buy": "buy",
+     "wear_part": false,
+     "criticality": "A",
+     "recommended_spares": 1,
+     "notes": null
+    },
+    {
+     "id": "servo-drives",
+     "name": "Servo drives",
+     "category": "drive",
+     "quantity": 4,
+     "specs": [
+      {
+       "name": "family",
+       "value": "SINAMICS S210"
+      }
+     ],
+     "manufacturer": "Siemens",
+     "part_number": null,
+     "make_or_buy": "buy",
+     "wear_part": false,
+     "criticality": "A",
+     "recommended_spares": 1,
+     "notes": null
+    },
+    {
+     "id": "hmi",
+     "name": "HMI touch panel",
+     "category": "hmi",
+     "quantity": 1,
+     "specs": [
+      {
+       "name": "size",
+       "value": "15 in"
+      }
+     ],
+     "manufacturer": "Siemens",
+     "part_number": null,
+     "make_or_buy": "buy",
+     "wear_part": false,
+     "criticality": "B",
+     "recommended_spares": 0,
+     "notes": null
+    },
+    {
+     "id": "psu",
+     "name": "24 V DC power supply",
+     "category": "electrical",
+     "quantity": 1,
+     "specs": [
+      {
+       "name": "current",
+       "value": "20 A"
+      }
+     ],
+     "manufacturer": "Phoenix Contact",
+     "part_number": null,
+     "make_or_buy": "buy",
+     "wear_part": false,
+     "criticality": "A",
+     "recommended_spares": 1,
+     "notes": null
+    }
+   ]
+  },
+  {
+   "id": "st-safety",
+   "name": "Safety",
+   "kind": "safety",
+   "sequence": 0,
+   "function": "Guarding, interlocked doors and emergency stop",
+   "cycle_time_s": null,
+   "length_mm": null,
+   "width_mm": null,
+   "height_mm": null,
+   "components": [
+    {
+     "id": "safety-relay",
+     "name": "Safety relay",
+     "category": "safety",
+     "quantity": 1,
+     "specs": [
+      {
+       "name": "contacts",
+       "value": "3 NO + 1 NC"
+      },
+      {
+       "name": "supply",
+       "value": "24 V DC"
+      }
+     ],
+     "manufacturer": "Pilz",
+     "part_number": "750104",
+     "make_or_buy": "buy",
+     "wear_part": false,
+     "criticality": "A",
+     "recommended_spares": 1,
+     "notes": null
+    },
+    {
+     "id": "door-switch",
+     "name": "Interlock door switch",
+     "category": "safety",
+     "quantity": 4,
+     "specs": [
+      {
+       "name": "type",
+       "value": "RFID coded"
+      }
+     ],
+     "manufacturer": "Schmersal",
+     "part_number": null,
+     "make_or_buy": "buy",
+     "wear_part": false,
+     "criticality": "A",
+     "recommended_spares": 1,
+     "notes": null
+    },
+    {
+     "id": "guards",
+     "name": "Polycarbonate guards",
+     "category": "guarding",
+     "quantity": 4,
+     "specs": [
+      {
+       "name": "thickness",
+       "value": "6 mm"
+      }
+     ],
+     "manufacturer": null,
+     "part_number": null,
+     "make_or_buy": "make",
+     "wear_part": false,
+     "criticality": "C",
+     "recommended_spares": 0,
+     "notes": null
+    }
+   ]
+  },
+  {
+   "id": "st-pneumatics",
+   "name": "Compressed air",
+   "kind": "utility",
+   "sequence": 0,
+   "function": "Air treatment and valve terminal",
+   "cycle_time_s": null,
+   "length_mm": 800.0,
+   "width_mm": 300.0,
+   "height_mm": 1000.0,
+   "components": [
+    {
+     "id": "air-frl",
+     "name": "Filter regulator unit",
+     "category": "air_treatment",
+     "quantity": 1,
+     "specs": [
+      {
+       "name": "port",
+       "value": "G1/2"
+      },
+      {
+       "name": "filter",
+       "value": "5 um"
+      }
+     ],
+     "manufacturer": "Festo",
+     "part_number": null,
+     "make_or_buy": "buy",
+     "wear_part": false,
+     "criticality": "A",
+     "recommended_spares": 0,
+     "notes": null
+    },
+    {
+     "id": "valve-terminal",
+     "name": "Valve terminal",
+     "category": "pneumatic_valve",
+     "quantity": 1,
+     "specs": [
+      {
+       "name": "valves",
+       "value": "8"
+      },
+      {
+       "name": "bus",
+       "value": "PROFINET"
+      }
+     ],
+     "manufacturer": "Festo",
+     "part_number": null,
+     "make_or_buy": "buy",
+     "wear_part": false,
+     "criticality": "A",
+     "recommended_spares": 1,
+     "notes": null
+    }
+   ]
+  }
+ ],
+ "utilities": [
+  "400 V 3~ 50 Hz",
+  "6 bar dry compressed air"
+ ],
+ "assumptions": [
+  "Generated by the offline demo engine, not by an AI model."
+ ],
+ "open_questions": []
+}

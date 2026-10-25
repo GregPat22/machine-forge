@@ -1,0 +1,495 @@
+{
+ "name": "Automatic assembly cell (demo)",
+ "machine_type": "Automatic assembly cell",
+ "summary": "Demo design generated offline for: Assemble two plastic housing halves, 20 pieces per minute.",
+ "product": "parts",
+ "throughput": "20 pieces/min",
+ "footprint": null,
+ "layout_style": "inline",
+ "stations": [
+  {
+   "id": "st-pick",
+   "name": "Pick and place",
+   "kind": "process",
+   "sequence": 1,
+   "function": "Picks parts from the infeed and places them in the fixture",
+   "cycle_time_s": 3.0,
+   "length_mm": 1200.0,
+   "width_mm": 1000.0,
+   "height_mm": 2000.0,
+   "components": [
+    {
+     "id": "pp-axis-x",
+     "name": "Linear axis X",
+     "category": "linear_motion",
+     "quantity": 1,
+     "specs": [
+      {
+       "name": "stroke",
+       "value": "600 mm"
+      },
+      {
+       "name": "payload",
+       "value": "5 kg"
+      }
+     ],
+     "manufacturer": "Festo",
+     "part_number": null,
+     "make_or_buy": "buy",
+     "wear_part": false,
+     "criticality": "A",
+     "recommended_spares": 0,
+     "notes": null
+    },
+    {
+     "id": "pp-axis-z",
+     "name": "Linear axis Z",
+     "category": "linear_motion",
+     "quantity": 1,
+     "specs": [
+      {
+       "name": "stroke",
+       "value": "150 mm"
+      }
+     ],
+     "manufacturer": "Festo",
+     "part_number": null,
+     "make_or_buy": "buy",
+     "wear_part": false,
+     "criticality": "A",
+     "recommended_spares": 0,
+     "notes": null
+    },
+    {
+     "id": "pp-gripper",
+     "name": "Parallel gripper",
+     "category": "pneumatic_actuator",
+     "quantity": 1,
+     "specs": [
+      {
+       "name": "stroke",
+       "value": "2x10 mm"
+      }
+     ],
+     "manufacturer": "SCHUNK",
+     "part_number": null,
+     "make_or_buy": "buy",
+     "wear_part": true,
+     "criticality": "A",
+     "recommended_spares": 1,
+     "notes": null
+    }
+   ]
+  },
+  {
+   "id": "st-assembly",
+   "name": "Assembly",
+   "kind": "process",
+   "sequence": 2,
+   "function": "Presses the parts together with force monitoring",
+   "cycle_time_s": 3.0,
+   "length_mm": 1000.0,
+   "width_mm": 900.0,
+   "height_mm": 1900.0,
+   "components": [
+    {
+     "id": "press",
+     "name": "Servo press",
+     "category": "servo_motor",
+     "quantity": 1,
+     "specs": [
+      {
+       "name": "force",
+       "value": "5 kN"
+      }
+     ],
+     "manufacturer": null,
+     "part_number": null,
+     "make_or_buy": "buy",
+     "wear_part": false,
+     "criticality": "A",
+     "recommended_spares": 0,
+     "notes": null
+    },
+    {
+     "id": "press-fixture",
+     "name": "Assembly fixture",
+     "category": "custom_part",
+     "quantity": 1,
+     "specs": [
+      {
+       "name": "material",
+       "value": "steel, hardened"
+      }
+     ],
+     "manufacturer": null,
+     "part_number": null,
+     "make_or_buy": "make",
+     "wear_part": true,
+     "criticality": "A",
+     "recommended_spares": 1,
+     "notes": null
+    }
+   ]
+  },
+  {
+   "id": "st-outfeed",
+   "name": "Outfeed and reject",
+   "kind": "transport",
+   "sequence": 3,
+   "function": "Conveys good product out and rejects faulty product",
+   "cycle_time_s": null,
+   "length_mm": 1500.0,
+   "width_mm": 500.0,
+   "height_mm": 1000.0,
+   "components": [
+    {
+     "id": "out-belt",
+     "name": "Outfeed conveyor belt",
+     "category": "conveyor",
+     "quantity": 1,
+     "specs": [
+      {
+       "name": "width",
+       "value": "200 mm"
+      },
+      {
+       "name": "length",
+       "value": "1.5 m"
+      }
+     ],
+     "manufacturer": null,
+     "part_number": null,
+     "make_or_buy": "buy",
+     "wear_part": true,
+     "criticality": "B",
+     "recommended_spares": 1,
+     "notes": null
+    },
+    {
+     "id": "out-motor",
+     "name": "Conveyor gearmotor",
+     "category": "motor",
+     "quantity": 1,
+     "specs": [
+      {
+       "name": "power",
+       "value": "0.25 kW"
+      }
+     ],
+     "manufacturer": "SEW-Eurodrive",
+     "part_number": null,
+     "make_or_buy": "buy",
+     "wear_part": false,
+     "criticality": "B",
+     "recommended_spares": 0,
+     "notes": null
+    },
+    {
+     "id": "reject-cyl",
+     "name": "Reject pusher cylinder",
+     "category": "pneumatic_actuator",
+     "quantity": 1,
+     "specs": [
+      {
+       "name": "bore",
+       "value": "25 mm"
+      },
+      {
+       "name": "stroke",
+       "value": "100 mm"
+      }
+     ],
+     "manufacturer": "Festo",
+     "part_number": null,
+     "make_or_buy": "buy",
+     "wear_part": false,
+     "criticality": "B",
+     "recommended_spares": 1,
+     "notes": null
+    }
+   ]
+  },
+  {
+   "id": "st-frame",
+   "name": "Machine frame",
+   "kind": "frame",
+   "sequence": 0,
+   "function": "Welded base frame and stainless steel cladding",
+   "cycle_time_s": null,
+   "length_mm": null,
+   "width_mm": null,
+   "height_mm": null,
+   "components": [
+    {
+     "id": "frame-base",
+     "name": "Welded base frame",
+     "category": "frame_structure",
+     "quantity": 1,
+     "specs": [
+      {
+       "name": "material",
+       "value": "AISI 304"
+      }
+     ],
+     "manufacturer": null,
+     "part_number": null,
+     "make_or_buy": "make",
+     "wear_part": false,
+     "criticality": "C",
+     "recommended_spares": 0,
+     "notes": null
+    },
+    {
+     "id": "frame-feet",
+     "name": "Levelling feet",
+     "category": "frame_structure",
+     "quantity": 6,
+     "specs": [
+      {
+       "name": "load",
+       "value": "1000 kg"
+      }
+     ],
+     "manufacturer": "Elesa+Ganter",
+     "part_number": null,
+     "make_or_buy": "buy",
+     "wear_part": false,
+     "criticality": "C",
+     "recommended_spares": 0,
+     "notes": null
+    }
+   ]
+  },
+  {
+   "id": "st-control",
+   "name": "Control cabinet",
+   "kind": "control",
+   "sequence": 0,
+   "function": "PLC, drives, power distribution and HMI",
+   "cycle_time_s": null,
+   "length_mm": 1600.0,
+   "width_mm": 600.0,
+   "height_mm": 2000.0,
+   "components": [
+    {
+     "id": "plc-cpu",
+     "name": "PLC CPU",
+     "category": "plc",
+     "quantity": 1,
+     "specs": [
+      {
+       "name": "family",
+       "value": "SIMATIC S7-1500"
+      }
+     ],
+     "manufacturer": "Siemens",
+     "part_number": "6ES7515-2AM02-0AB0",
+     "make_or_buy": "buy",
+     "wear_part": false,
+     "criticality": "A",
+     "recommended_spares": 1,
+     "notes": null
+    },
+    {
+     "id": "servo-drives",
+     "name": "Servo drives",
+     "category": "drive",
+     "quantity": 4,
+     "specs": [
+      {
+       "name": "family",
+       "value": "SINAMICS S210"
+      }
+     ],
+     "manufacturer": "Siemens",
+     "part_number": null,
+     "make_or_buy": "buy",
+     "wear_part": false,
+     "criticality": "A",
+     "recommended_spares": 1,
+     "notes": null
+    },
+    {
+     "id": "hmi",
+     "name": "HMI touch panel",
+     "category": "hmi",
+     "quantity": 1,
+     "specs": [
+      {
+       "name": "size",
+       "value": "15 in"
+      }
+     ],
+     "manufacturer": "Siemens",
+     "part_number": null,
+     "make_or_buy": "buy",
+     "wear_part": false,
+     "criticality": "B",
+     "recommended_spares": 0,
+     "notes": null
+    },
+    {
+     "id": "psu",
+     "name": "24 V DC power supply",
+     "category": "electrical",
+     "quantity": 1,
+     "specs": [
+      {
+       "name": "current",
+       "value": "20 A"
+      }
+     ],
+     "manufacturer": "Phoenix Contact",
+     "part_number": null,
+     "make_or_buy": "buy",
+     "wear_part": false,
+     "criticality": "A",
+     "recommended_spares": 1,
+     "notes": null
+    }
+   ]
+  },
+  {
+   "id": "st-safety",
+   "name": "Safety",
+   "kind": "safety",
+   "sequence": 0,
+   "function": "Guarding, interlocked doors and emergency stop",
+   "cycle_time_s": null,
+   "length_mm": null,
+   "width_mm": null,
+   "height_mm": null,
+   "components": [
+    {
+     "id": "safety-relay",
+     "name": "Safety relay",
+     "category": "safety",
+     "quantity": 1,
+     "specs": [
+      {
+       "name": "contacts",
+       "value": "3 NO + 1 NC"
+      },
+      {
+       "name": "supply",
+       "value": "24 V DC"
+      }
+     ],
+     "manufacturer": "Pilz",
+     "part_number": "750104",
+     "make_or_buy": "buy",
+     "wear_part": false,
+     "criticality": "A",
+     "recommended_spares": 1,
+     "notes": null
+    },
+    {
+     "id": "door-switch",
+     "name": "Interlock door switch",
+     "category": "safety",
+     "quantity": 4,
+     "specs": [
+      {
+       "name": "type",
+       "value": "RFID coded"
+      }
+     ],
+     "manufacturer": "Schmersal",
+     "part_number": null,
+     "make_or_buy": "buy",
+     "wear_part": false,
+     "criticality": "A",
+     "recommended_spares": 1,
+     "notes": null
+    },
+    {
+     "id": "guards",
+     "name": "Polycarbonate guards",
+     "category": "guarding",
+     "quantity": 4,
+     "specs": [
+      {
+       "name": "thickness",
+       "value": "6 mm"
+      }
+     ],
+     "manufacturer": null,
+     "part_number": null,
+     "make_or_buy": "make",
+     "wear_part": false,
+     "criticality": "C",
+     "recommended_spares": 0,
+     "notes": null
+    }
+   ]
+  },
+  {
+   "id": "st-pneumatics",
+   "name": "Compressed air",
+   "kind": "utility",
+   "sequence": 0,
+   "function": "Air treatment and valve terminal",
+   "cycle_time_s": null,
+   "length_mm": 800.0,
+   "width_mm": 300.0,
+   "height_mm": 1000.0,
+   "components": [
+    {
+     "id": "air-frl",
+     "name": "Filter regulator unit",
+     "category": "air_treatment",
+     "quantity": 1,
+     "specs": [
+      {
+       "name": "port",
+       "value": "G1/2"
+      },
+      {
+       "name": "filter",
+       "value": "5 um"
+      }
+     ],
+     "manufacturer": "Festo",
+     "part_number": null,
+     "make_or_buy": "buy",
+     "wear_part": false,
+     "criticality": "A",
+     "recommended_spares": 0,
+     "notes": null
+    },
+    {
+     "id": "valve-terminal",
+     "name": "Valve terminal",
+     "category": "pneumatic_valve",
+     "quantity": 1,
+     "specs": [
+      {
+       "name": "valves",
+       "value": "8"
+      },
+      {
+       "name": "bus",
+       "value": "PROFINET"
+      }
+     ],
+     "manufacturer": "Festo",
+     "part_number": null,
+     "make_or_buy": "buy",
+     "wear_part": false,
+     "criticality": "A",
+     "recommended_spares": 1,
+     "notes": null
+    }
+   ]
+  }
+ ],
+ "utilities": [
+  "400 V 3~ 50 Hz",
+  "6 bar dry compressed air"
+ ],
+ "assumptions": [
+  "Generated by the offline demo engine, not by an AI model."
+ ],
+ "open_questions": []
+}

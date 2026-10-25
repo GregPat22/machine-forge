@@ -9,6 +9,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+from app.migrations.design_v1 import migrate_design
 from app.models import (
     ChatMessage,
     MachineDesign,
@@ -22,9 +23,10 @@ from app.models import (
 )
 
 # Every table carries a workspace_id (one default workspace until users exist, see ADR 0008).
-# Stored designs carry the schema version of MachineDesign they were written with (1 = v0.3).
+# Stored designs carry the schema version of MachineDesign they were written with (1 = v0.3 and
+# Phase 0, 2 = model v2). Older designs are migrated on read; their rows are never rewritten.
 DEFAULT_WORKSPACE = "default"
-DESIGN_SCHEMA_VERSION = 1
+DESIGN_SCHEMA_VERSION = 2
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS projects (
@@ -100,6 +102,12 @@ MIGRATIONS: tuple[tuple[str, str, str], ...] = (
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def _read_design(stored: str, schema_version: int) -> MachineDesign:
+    if schema_version == DESIGN_SCHEMA_VERSION:
+        return MachineDesign.model_validate_json(stored)
+    return migrate_design(json.loads(stored), from_version=schema_version)
 
 
 class Storage:
@@ -202,7 +210,7 @@ class Storage:
             number=row["number"],
             prompt=row["prompt"],
             reply=row["reply"],
-            design=MachineDesign.model_validate_json(row["design"]),
+            design=_read_design(row["design"], row["schema_version"]),
             schema_version=row["schema_version"],
             created_at=row["created_at"],
         )

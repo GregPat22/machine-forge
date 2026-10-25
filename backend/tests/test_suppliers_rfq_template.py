@@ -17,8 +17,8 @@ from tests.conftest import BLISTER_PROBLEM
 
 
 def _design_with_cpu() -> MachineDesign:
-    return MachineDesign(name="t", machine_type="t", summary="t", product="t", stations=[
-        Station(id="s", name="S", sequence=1, function="f", components=[
+    return MachineDesign(name="t", machine_type="t", summary="t", stations=[
+        Station(id="s", name="S", function="f", components=[
             Component(id="cpu", name="PLC CPU", category="plc", quantity=1, part_number="6ES7515-2AM02-0AB0"),
         ]),
     ])
