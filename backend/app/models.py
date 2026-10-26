@@ -341,13 +341,6 @@ class MachineDesign(BaseModel):
         return order
 
 
-class DesignUpdate(BaseModel):
-    """What the AI returns on every turn: a reply to the user and the full updated design."""
-
-    reply: str = Field(description="Short message to the engineer: what changed and why, or what you need to know")
-    design: MachineDesign
-
-
 # --- Persistence / API shapes -------------------------------------------------------------
 
 

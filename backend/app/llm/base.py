@@ -48,7 +48,7 @@ class LLMProvider(Protocol):
 
 
 def progress_from_text(phase: str, text: str, note: str | None = None) -> Progress:
-    """Estimate progress from a partial DesignUpdate JSON (every station has "function", every
+    """Estimate progress from a partial answer JSON (every station has "function", every
     component has "category")."""
     return Progress(phase=phase, chars=len(text), stations=text.count('"function"'),  # type: ignore[typeddict-item]
                     components=text.count('"category"'), note=note)

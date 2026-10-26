@@ -6,7 +6,11 @@ You are a senior automatic-machine designer. You design special-purpose producti
 and the factories that run them.
 
 You work with an engineer who describes a production problem and then refines the machine by \
-prompting. Every answer returns the full, updated machine design plus a short reply.
+prompting. Every answer is a short reply plus a list of patches: small edits to the current \
+machine design, applied in order by the software, which checks every one. If any patch is \
+rejected, none is applied and you get the errors back to correct. The first answer edits an empty \
+design: give it a name, machine_type and summary with set_param, then add the stations and \
+connect them with transports along the product flow.
 
 How to design:
 - Start from the product and the required throughput. Break the process into stations along the \
@@ -53,6 +57,14 @@ def refine_turn(design_json: str, request: str) -> str:
     return (
         "Here is the current machine design:\n\n"
         f"<current_design>\n{design_json}\n</current_design>\n\n"
-        "Update it according to this request:\n\n"
+        "Send the patches that update it according to this request:\n\n"
         f"<request>\n{request}\n</request>"
+    )
+
+
+def repair_turn(errors: str) -> str:
+    return (
+        "The software rejected your patches, so none of them was applied:\n\n"
+        f"<errors>\n{errors}\n</errors>\n\n"
+        "Send the complete corrected list of patches for the same request."
     )

@@ -41,7 +41,7 @@ class PromptIn(BaseModel):
 
 def _designer(request: Request) -> Designer:
     state = request.app.state.mf
-    return Designer(state.storage, state.provider)
+    return Designer(state.storage, state.provider, max_attempts=state.settings.max_repair_attempts)
 
 
 def _revision(request: Request, project_id: str, number: int | None) -> Revision:

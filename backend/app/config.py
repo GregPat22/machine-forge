@@ -43,6 +43,8 @@ class Settings:
     openai_base_url: str = "http://localhost:11434/v1"
     openai_api_key: str = ""
     openai_model: str = "llama3.1"
+    # Answers the AI may give for one request when its patches are rejected (the first one included).
+    max_repair_attempts: int = 3
 
     db_path: Path = BACKEND_DIR / "data" / "machine-forge.db"
 
@@ -71,6 +73,13 @@ class Settings:
 DEFAULT_FX = "USD=0.92,GBP=1.17,CHF=1.06,JPY=0.0061,CNY=0.13"
 
 
+def _attempts(raw: str) -> int:
+    attempts = int(raw)
+    if attempts < 1:
+        raise ValueError(f"MF_MAX_REPAIR_ATTEMPTS must be at least 1, got {attempts}")
+    return attempts
+
+
 def load_settings() -> Settings:
     _load_dotenv(BACKEND_DIR / ".env")
     _load_dotenv(BACKEND_DIR.parent / ".env")
@@ -82,6 +91,7 @@ def load_settings() -> Settings:
         openai_base_url=env("MF_OPENAI_BASE_URL", "http://localhost:11434/v1"),
         openai_api_key=env("MF_OPENAI_API_KEY", ""),
         openai_model=env("MF_OPENAI_MODEL", "llama3.1"),
+        max_repair_attempts=_attempts(env("MF_MAX_REPAIR_ATTEMPTS", "3")),
         db_path=Path(env("MF_DB_PATH", str(BACKEND_DIR / "data" / "machine-forge.db"))),
         mouser_api_key=env("MOUSER_API_KEY", ""),
         nexar_client_id=env("NEXAR_CLIENT_ID", ""),
