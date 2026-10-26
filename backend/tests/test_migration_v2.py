@@ -13,6 +13,7 @@ import pytest
 from app.llm.mock import _initial_design, _refine
 from app.migrations.design_v1 import CATEGORY_ROLES, ComponentCategoryV1, MachineDesignV1, migrate_design, to_v1
 from app.models import MachineDesign, Step
+from app.services.patch import apply_patches
 from app.storage import DESIGN_SCHEMA_VERSION, Storage
 from tests.fixtures.v1.make_fixtures import PROBLEMS
 from tests.test_migration import _write_v03_database
@@ -152,5 +153,11 @@ def test_mock_output_matches_its_v1_fixture(name: str) -> None:
 
 def test_mock_refinements_match_their_v1_fixtures() -> None:
     for request, name in (("add vision inspection", "blister-vision"), ("make it u-shaped", "blister-u-shape")):
-        refined = _refine(_initial_design(PROBLEMS["blister"]), request).design
-        assert to_v1(refined).model_dump() == MachineDesignV1.model_validate(_raw(name)).model_dump()
+        initial = _initial_design(PROBLEMS["blister"])
+        refined = apply_patches(initial, _refine(initial, request).patches).design
+        assert refined is not None
+        exported = to_v1(refined)
+        # A patch appends a new station; the v1 mock sorted the list by sequence. In v2 the list
+        # order carries no meaning (sequence is derived), so put it in the v1 mock's order.
+        exported.stations.sort(key=lambda s: (s.sequence == 0, s.sequence))
+        assert exported.model_dump() == MachineDesignV1.model_validate(_raw(name)).model_dump()

@@ -98,7 +98,9 @@ def test_streaming_create_and_prompt(client: TestClient) -> None:
         events = _sse_events(response.read().decode())
     assert events[-1][0] == "done" and events[-1][1]["latest_revision"] == 2
     writing = [p for k, p in events if k == "progress" and p["phase"] == "writing"]
-    assert writing and writing[-1]["stations"] == len(events[-1][1]["design"]["stations"])
+    # The answer is patches: the counts are what this answer writes, here the one added station.
+    added = len(events[-1][1]["design"]["stations"]) - len(project["design"]["stations"])
+    assert writing and (writing[-1]["stations"], added) == (1, 1)
 
     assert client.post("/api/projects/nope/prompt/stream", json={"message": "x"}).status_code == 404
 

@@ -2,7 +2,7 @@
 
 Builds a plausible machine from keywords in the problem statement and understands a few
 refinement requests. It is for tests, demos without an API key and UI development, not for
-real design work.
+real design work. Like a real model it answers with patches, which the designer validates.
 """
 
 from __future__ import annotations
@@ -12,7 +12,8 @@ import re
 from typing import Any
 
 from app.llm.base import LLMError, ProgressFn, T, Turn, progress_from_text
-from app.models import Component, DesignUpdate, MachineDesign, Product, Spec, Station, Step, Transport
+from app.models import Component, MachineDesign, Product, Spec, Station, Step, Transport
+from app.services.patch import PatchOp, PatchUpdate
 
 
 def _c(cid: str, name: str, category: str, qty: int = 1, specs: dict[str, str] | None = None, **kw: Any) -> Component:
@@ -273,31 +274,63 @@ def _vision_station() -> Station:
                    ])
 
 
-def _refine(design: MachineDesign, request: str) -> DesignUpdate:
+def _design_patches(design: MachineDesign) -> list[PatchOp]:
+    """The patches that build `design` from an empty design."""
+    machine = [("name", design.name), ("machine_type", design.machine_type), ("summary", design.summary),
+               ("layout_style", design.layout_style), ("target_rate_text", design.target_rate_text)]
+    return [
+        *(PatchOp(op="set_param", name=name, text=text) for name, text in machine if text is not None),
+        PatchOp(op="set_product", product=design.product),
+        *(PatchOp(op="add_station", station=s) for s in design.stations),
+        *(PatchOp(op="connect", transport=t) for t in design.transports),
+        PatchOp(op="set_utility", items=design.utilities),
+        *(PatchOp(op="add_assumption", text=a) for a in design.assumptions),
+        *(PatchOp(op="add_open_question", text=q) for q in design.open_questions),
+    ]
+
+
+def _add_vision(design: MachineDesign) -> list[PatchOp]:
+    """Add the vision station at the end of the line, before the outfeed when there is one."""
+    vision = _with_envelopes([_vision_station()])[0]
+    patches = [PatchOp(op="add_station", station=vision)]
+    into_outfeed = [t for t in design.transports if t.to_station == "st-outfeed"]
+    if into_outfeed:
+        for t in into_outfeed:
+            patches += [PatchOp(op="disconnect", transport_id=t.id),
+                        PatchOp(op="connect", transport=Transport(id=f"tr-{t.from_station}-st-vision",
+                                                                  from_station=t.from_station, to_station="st-vision"))]
+        patches.append(PatchOp(op="connect", transport=Transport(id="tr-st-vision-st-outfeed",
+                                                                 from_station="st-vision", to_station="st-outfeed")))
+    else:
+        flow = [s for s in design.stations if s.sequence > 0]
+        if flow:
+            last = max(flow, key=lambda s: s.sequence).id
+            patches.append(PatchOp(op="connect", transport=Transport(id=f"tr-{last}-st-vision",
+                                                                     from_station=last, to_station="st-vision")))
+    return patches
+
+
+def _layout(style: str) -> list[PatchOp]:
+    return [PatchOp(op="set_param", name="layout_style", text=style)]
+
+
+def _refine(design: MachineDesign, request: str) -> PatchUpdate:
     r = request.lower()
     if any(k in r for k in ("vision", "camera", "inspect", "visione", "telecamera")):
         if any(s.id == "st-vision" for s in design.stations):
-            return DesignUpdate(reply="The machine already has a vision inspection station.", design=design)
-        flow = [s.id for s in sorted(design.stations, key=lambda s: s.sequence) if s.sequence > 0]
-        process = [sid for sid in flow if sid != "st-outfeed"]
-        design.transports = _belts([*process, "st-vision", *(["st-outfeed"] if "st-outfeed" in flow else [])])
-        design.stations.extend(_with_envelopes([_vision_station()]))
-        design = MachineDesign.model_validate(design.model_dump())
-        # sorted(), not list.sort(): during an in-place sort the list is empty and a station
-        # cannot find its design to derive its sequence.
-        design.stations = sorted(design.stations, key=lambda s: (s.sequence == 0, s.sequence))
-        return DesignUpdate(reply="Added a vision inspection station before the outfeed (demo engine).", design=design)
+            return PatchUpdate(reply="The machine already has a vision inspection station.", patches=[])
+        return PatchUpdate(reply="Added a vision inspection station before the outfeed (demo engine).",
+                           patches=_add_vision(design))
     if any(k in r for k in ("u-shape", "u shape", "u-shaped", "u shaped", "compact", "shorter", "forma a u")):
-        design.layout_style = "u_shape"
-        return DesignUpdate(reply="Arranged the process stations in a U-shape to shorten the line (demo engine).",
-                            design=design)
+        return PatchUpdate(reply="Arranged the process stations in a U-shape to shorten the line (demo engine).",
+                           patches=_layout("u_shape"))
     if any(k in r for k in ("inline", "in line", "straight", "in linea")):
-        design.layout_style = "inline"
-        return DesignUpdate(reply="Arranged the process stations in a straight line (demo engine).", design=design)
-    return DesignUpdate(
+        return PatchUpdate(reply="Arranged the process stations in a straight line (demo engine).",
+                           patches=_layout("inline"))
+    return PatchUpdate(
         reply="Demo mode understands only a few requests (e.g. 'add vision inspection', 'make it U-shaped'). "
         "Configure an AI provider to refine the design freely.",
-        design=design,
+        patches=[],
     )
 
 
@@ -308,8 +341,8 @@ class MockProvider:
     def structured(
         self, *, system: str, turns: list[Turn], output: type[T], on_progress: ProgressFn | None = None
     ) -> T:
-        if output is not DesignUpdate:
-            raise LLMError("The demo engine only produces machine designs.")
+        if output is not PatchUpdate:
+            raise LLMError("The demo engine only produces design patches.")
         if on_progress:
             on_progress(progress_from_text("thinking", "", "Demo engine: matching the request to a template"))
         result = self._answer(turns)
@@ -317,7 +350,7 @@ class MockProvider:
             on_progress(progress_from_text("writing", result.model_dump_json()))
         return result  # type: ignore[return-value]
 
-    def _answer(self, turns: list[Turn]) -> DesignUpdate:
+    def _answer(self, turns: list[Turn]) -> PatchUpdate:
         last = turns[-1]["content"]
         current = re.search(r"<current_design>\n(.*)\n</current_design>", last, re.S)
         if current:
@@ -327,4 +360,4 @@ class MockProvider:
         problem = re.search(r"<problem>\n(.*)\n</problem>", last, re.S)
         design = _initial_design(problem.group(1) if problem else last)
         reply = f"Demo design: {len(design.stations)} stations. Set up an AI provider for real designs."
-        return DesignUpdate(reply=reply, design=design)
+        return PatchUpdate(reply=reply, patches=_design_patches(design))

@@ -11,12 +11,18 @@ import pytest
 
 from app.llm.anthropic_provider import FALLBACK_BETA, AnthropicProvider
 from app.llm.base import LLMError, LLMNotConfigured
-from app.llm.mock import _initial_design
+from app.llm.mock import _design_patches, _initial_design
 from app.llm.openai_compatible import OpenAICompatibleProvider
-from app.models import DesignUpdate
+from app.services.patch import PatchUpdate, apply_patches, empty_design
 from tests.conftest import BLISTER_PROBLEM
 
-ANSWER = DesignUpdate(reply="First version.", design=_initial_design(BLISTER_PROBLEM)).model_dump_json()
+ANSWER = PatchUpdate(reply="First version.", patches=_design_patches(_initial_design(BLISTER_PROBLEM))).model_dump_json()
+
+
+def _design(update: PatchUpdate):
+    result = apply_patches(empty_design(), update.patches)
+    assert result.design is not None, result.errors
+    return result.design
 
 
 def _sse(text: str, stop_reason: str = "end_turn", thinking: list[str] | None = None, chunks: int = 1) -> str:
@@ -68,10 +74,10 @@ def test_anthropic_request_shape_and_parsing() -> None:
         return httpx2.Response(200, text=_sse(ANSWER), headers={"content-type": "text/event-stream"})
 
     result = _anthropic(handler).structured(
-        system="sys", turns=[{"role": "user", "content": "hi"}], output=DesignUpdate
+        system="sys", turns=[{"role": "user", "content": "hi"}], output=PatchUpdate
     )
     assert result.reply == "First version."
-    assert result.design.target_rate_text == "300 tablets/min"
+    assert _design(result).target_rate_text == "300 tablets/min"
 
     body = seen["body"]
     assert body["model"] == "claude-opus-5-5"
@@ -93,14 +99,15 @@ def test_anthropic_reports_progress_while_streaming(monkeypatch: pytest.MonkeyPa
 
     seen: list[dict] = []
     result = _anthropic(handler).structured(
-        system="s", turns=[{"role": "user", "content": "x"}], output=DesignUpdate, on_progress=seen.append
+        system="s", turns=[{"role": "user", "content": "x"}], output=PatchUpdate, on_progress=seen.append
     )
     assert result.reply == "First version."
     phases = [p["phase"] for p in seen]
     assert phases[0] == "waiting" and "thinking" in phases and phases[-1] == "writing"
     assert next(p for p in seen if p["phase"] == "thinking" and p["note"])["note"] == "Sizing the forming station."
-    assert seen[-1]["stations"] == len(result.design.stations)
-    assert seen[-1]["components"] == sum(len(s.components) for s in result.design.stations)
+    design = _design(result)
+    assert seen[-1]["stations"] == len(design.stations)
+    assert seen[-1]["components"] == sum(len(s.components) for s in design.stations)
 
 
 def test_anthropic_refusal_is_reported() -> None:
@@ -108,7 +115,7 @@ def test_anthropic_refusal_is_reported() -> None:
         return httpx2.Response(200, text=_sse("", stop_reason="refusal"), headers={"content-type": "text/event-stream"})
 
     with pytest.raises(LLMError, match="declined"):
-        _anthropic(handler).structured(system="s", turns=[{"role": "user", "content": "x"}], output=DesignUpdate)
+        _anthropic(handler).structured(system="s", turns=[{"role": "user", "content": "x"}], output=PatchUpdate)
 
 
 def test_anthropic_without_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -131,7 +138,7 @@ def test_openai_compatible_retries_after_invalid_json() -> None:
             {"message": {"role": "assistant", "content": next(answers)}, "finish_reason": "stop"}]})
 
     provider = OpenAICompatibleProvider("http://llm.local/v1", "llama3.1", transport=httpx.MockTransport(handler))
-    result = provider.structured(system="sys", turns=[{"role": "user", "content": "hi"}], output=DesignUpdate)
+    result = provider.structured(system="sys", turns=[{"role": "user", "content": "hi"}], output=PatchUpdate)
     assert result.reply == "First version."
     assert len(bodies) == 2
     assert bodies[0]["response_format"]["json_schema"]["strict"] is True

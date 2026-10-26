@@ -9,8 +9,9 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
-from app.models import DesignUpdate, MachineDesign, Product, Station, Step, Transport
+from app.models import MachineDesign, Product, Station, Step, Transport
 from app.schema import strict_schema
+from app.services.patch import PatchUpdate
 from app.storage import Storage
 
 DERIVED = ("sequence", "cycle_time_s")
@@ -99,8 +100,7 @@ def test_derived_values_are_not_stored_dumped_or_in_the_ai_schema(storage: Stora
     for station in json.loads(raw)["stations"]:
         assert not set(DERIVED) & set(station)
 
-    # Step 2 replaces DesignUpdate with PatchUpdate; the same check moves there.
-    schema = json.dumps(strict_schema(DesignUpdate))
+    schema = json.dumps(strict_schema(PatchUpdate))
     for name in DERIVED:
         assert f'"{name}"' not in schema
 
@@ -149,7 +149,7 @@ def test_a_station_outside_a_design_has_no_derived_sequence() -> None:
 def test_schema_version_and_placement_are_not_written_by_the_ai() -> None:
     design = _design([], [])
     assert design.schema_version == 2 and design.model_dump()["schema_version"] == 2
-    schema = json.dumps(strict_schema(DesignUpdate))
+    schema = json.dumps(strict_schema(PatchUpdate))
     assert '"schema_version"' not in schema
     assert '"placement"' not in schema and '"x_mm"' not in schema  # coordinates come from the layout (rule 3)
     with pytest.raises(ValidationError):

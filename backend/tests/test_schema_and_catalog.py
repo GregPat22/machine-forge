@@ -3,8 +3,9 @@ from __future__ import annotations
 from typing import Any
 
 from app.llm.mock import _initial_design
-from app.models import Component, DesignUpdate, MachineDesign, Station, Transport
+from app.models import Component, MachineDesign, Station, Transport
 from app.schema import strict_schema
+from app.services.patch import PatchUpdate
 from app.services.spare_parts import build_catalog
 from tests.conftest import BLISTER_PROBLEM
 
@@ -21,9 +22,9 @@ def _objects(node: Any):
 
 
 def test_strict_schema_meets_structured_output_rules() -> None:
-    schema = strict_schema(DesignUpdate)
+    schema = strict_schema(PatchUpdate)
     objects = list(_objects(schema))
-    assert len(objects) >= 5  # DesignUpdate, MachineDesign, Station, Component, Spec
+    assert len(objects) >= 5  # PatchUpdate, PatchOp, Station, Component, Spec
     for obj in objects:
         assert obj["additionalProperties"] is False
         assert set(obj["required"]) == set(obj["properties"])
