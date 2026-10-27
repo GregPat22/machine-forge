@@ -8,10 +8,9 @@ import xml.etree.ElementTree as ET
 
 import pytest
 
-from app.llm.mock import _initial_design
+from app.llm.mock import demo_design
 from app.models import MachineDesign
 from app.services.plc import generate, identifier, to_plcopen_xml, to_zip
-from tests.conftest import BLISTER_PROBLEM
 
 NS = {"p": "http://www.plcopen.org/xml/tc6_0201"}
 IDENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
@@ -19,14 +18,14 @@ IDENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 def test_identifiers_are_valid_iec_names() -> None:
     assert identifier("Film unwind & forming", "FB_S01_") == "FB_S01_FilmUnwindForming"
-    project = generate(_initial_design(BLISTER_PROBLEM), 1)
+    project = generate(demo_design("blister"), 1)
     gvl = next(f for f in project.files if f.name == "GVL_IO.st").content
     names = re.findall(r"^\s{4}(\w+) : (?:BOOL|INT);", gvl, re.M)
     assert names and all(IDENT.match(n) and "__" not in n for n in names)
 
 
 def test_station_blocks_and_sequences() -> None:
-    project = generate(_initial_design(BLISTER_PROBLEM), 2)
+    project = generate(demo_design("blister"), 2)
     names = [f.name for f in project.files]
     assert names[:4] == ["E_PackMLState.st", "E_PackMLCmd.st", "GVL_IO.st", "FB_PackML.st"]
     assert "PRG_Main.st" in names and len([n for n in names if n.startswith("FB_S")]) == 5
@@ -40,14 +39,14 @@ def test_station_blocks_and_sequences() -> None:
 
 
 def test_case_labels_are_unique_per_station() -> None:
-    for f in generate(_initial_design(BLISTER_PROBLEM), 1).files:
+    for f in generate(demo_design("blister"), 1).files:
         if f.name.startswith("FB_S"):
             labels = re.findall(r"^\s{8}(\d+):", f.content, re.M)
             assert len(labels) == len(set(labels)), f.name
 
 
 def test_plcopen_xml_structure() -> None:
-    design = _initial_design(BLISTER_PROBLEM)
+    design = demo_design("blister")
     root = ET.fromstring(to_plcopen_xml(design, design.name))
     pous = root.findall(".//p:pou", NS)
     assert {p.get("name") for p in pous} >= {"FB_PackML", "PRG_Main"}
@@ -61,12 +60,12 @@ def test_plcopen_xml_validates_against_tc6_schema() -> None:
     from lxml import etree
 
     schema = etree.XMLSchema(etree.parse(os.environ["MF_PLCOPEN_XSD"]))
-    design = _initial_design(BLISTER_PROBLEM)
+    design = demo_design("blister")
     assert schema.validate(etree.fromstring(to_plcopen_xml(design, design.name).encode()))
 
 
 def test_zip_contains_st_files_xml_and_readme() -> None:
-    design = _initial_design(BLISTER_PROBLEM)
+    design = demo_design("blister")
     data = to_zip(generate(design, 1), design)
     names = zipfile.ZipFile(io.BytesIO(data)).namelist()
     assert "plcopen.xml" in names and "README.txt" in names and "st/PRG_Main.st" in names

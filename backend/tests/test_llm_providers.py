@@ -14,14 +14,13 @@ from app.llm import make_provider
 from app.llm.anthropic_provider import FALLBACK_BETA, AnthropicProvider
 from app.llm.base import LLMError, LLMNotConfigured
 from app.llm.gemini_provider import GeminiProvider
-from app.llm.mock import MockProvider, _design_patches, _initial_design
+from app.llm.mock import MockProvider, _design_patches, demo_design
 from app.llm.openai_compatible import OpenAICompatibleProvider
 from app.llm.openai_provider import OpenAIProvider
 from app.schema import strict_schema
 from app.services.patch import PatchUpdate, apply_patches, empty_design
-from tests.conftest import BLISTER_PROBLEM
 
-ANSWER = PatchUpdate(reply="First version.", patches=_design_patches(_initial_design(BLISTER_PROBLEM))).model_dump_json()
+ANSWER = PatchUpdate(reply="First version.", patches=_design_patches(demo_design("blister"))).model_dump_json()
 
 
 def _design(update: PatchUpdate):
@@ -162,7 +161,7 @@ def test_capability_flags_are_reported() -> None:
     assert flags(OpenAIProvider(model="gpt-test", api_key="k")) == (True, True, False)
     assert flags(GeminiProvider(model="gemini-test", api_key="k")) == (False, True, False)
     assert flags(OpenAICompatibleProvider("http://llm.local/v1", "llama3.1")) == (True, False, False)
-    assert flags(MockProvider()) == (True, False, False)
+    assert flags(MockProvider(scenario="blister")) == (True, False, False)
 
 
 def test_anthropic_repairs_an_answer_that_does_not_match_the_schema() -> None:

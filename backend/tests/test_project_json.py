@@ -54,14 +54,14 @@ def test_export_then_import_reproduces_designs_and_revisions(client: TestClient)
 def test_import_into_an_empty_database(client: TestClient, settings) -> None:
     exported = _export(client, _created(client)["id"])
     other = TestClient(create_app(settings=replace(settings), storage=Storage(":memory:"),
-                                  provider=MockProvider(), connectors=[]))
+                                  provider=MockProvider(scenario="blister"), connectors=[]))
     assert other.post("/api/projects/import", content=json.dumps(exported)).status_code == 201
     assert len(other.get("/api/projects").json()) == 1
 
 
 def test_oversized_file_is_rejected(client: TestClient, settings) -> None:
     small = TestClient(create_app(settings=replace(settings, max_import_bytes=100), storage=Storage(":memory:"),
-                                  provider=MockProvider(), connectors=[]))
+                                  provider=MockProvider(scenario="blister"), connectors=[]))
     exported = _export(client, _created(client)["id"])
     response = small.post("/api/projects/import", content=json.dumps(exported))
     assert response.status_code == 413

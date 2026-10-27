@@ -2,12 +2,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.llm.mock import _initial_design
+from app.llm.mock import demo_design
 from app.models import Component, MachineDesign, Station, Transport
 from app.schema import strict_schema
 from app.services.patch import PatchUpdate
 from app.services.spare_parts import build_catalog
-from tests.conftest import BLISTER_PROBLEM
 
 
 def _objects(node: Any):
@@ -54,7 +53,7 @@ def test_catalog_merges_same_part_number_across_stations() -> None:
 
 
 def test_demo_design_has_infrastructure_and_throughput() -> None:
-    design = _initial_design(BLISTER_PROBLEM)
+    design = demo_design("blister")
     ids = {s.id for s in design.stations}
     assert {"st-control", "st-safety", "st-frame"} <= ids
     assert design.target_rate_text == "300 tablets/min"

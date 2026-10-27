@@ -4,10 +4,9 @@ import io
 
 from docx import Document
 
-from app.llm.mock import _initial_design
+from app.llm.mock import demo_design
 from app.models import Component, MachineDesign, Product, Spec, Station, Step
 from app.services.documents import build_document, cycle_check, io_list, safety_function_rows, to_docx, to_markdown
-from tests.conftest import BLISTER_PROBLEM
 
 
 def _small_design() -> MachineDesign:
@@ -58,7 +57,7 @@ def test_cycle_check_relates_cycle_time_to_throughput() -> None:
 
 
 def test_document_sections_and_exports() -> None:
-    doc = build_document(_initial_design(BLISTER_PROBLEM), revision=3)
+    doc = build_document(demo_design("blister"), revision=3)
     ids = [s.id for s in doc.sections]
     assert ids == ["overview", "functional", "sequence", "io", "utilities", "spares", "hazards", "safety", "open"]
     hazards = next(s for s in doc.sections if s.id == "hazards")

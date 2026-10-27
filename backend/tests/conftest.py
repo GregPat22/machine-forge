@@ -23,7 +23,7 @@ def storage() -> Storage:
 
 @pytest.fixture
 def client(settings: Settings, storage: Storage) -> TestClient:
-    app = create_app(settings=replace(settings), storage=storage, provider=MockProvider(), connectors=[])
+    app = create_app(settings=replace(settings), storage=storage, provider=MockProvider(scenario="blister"), connectors=[])
     return TestClient(app)
 
 

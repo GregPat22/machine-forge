@@ -18,12 +18,6 @@ by code. This is PLAN section 2, item 4.
 
 ### Other
 
-- `backend/app/llm/mock.py:35`: `_process_stations` picks the whole machine template with
-  `"blister" in problem.lower()`. Mock provider only. Replace with an explicit template key.
-- `backend/app/llm/mock.py:228`: regex pulls the production rate out of the problem text.
-  Replace with a structured rate field.
-- `backend/app/llm/mock.py:263`: `_refine` adds stations from keywords in the request. Replace
-  with patch operations (Phase 1).
 - `backend/app/services/documents.py:144`: regex over the free-text `design.throughput` to
   check the required rate against the slowest cycle. Replace with a numeric
   `throughput_per_min` and unit field.

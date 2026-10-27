@@ -8,7 +8,7 @@ from pathlib import Path
 
 from app.migrations.design_v1 import migrate_design
 from app.models import MachineDesign
-from app.llm.mock import _initial_design
+from app.llm.mock import demo_design
 from app.storage import DEFAULT_WORKSPACE, DESIGN_SCHEMA_VERSION, MIGRATIONS, Storage
 from tests.conftest import BLISTER_PROBLEM
 
@@ -146,7 +146,7 @@ def test_migration_is_idempotent(tmp_path: Path) -> None:
 
 
 def test_new_revisions_record_the_schema_version(storage: Storage) -> None:
-    design = _initial_design(BLISTER_PROBLEM)
+    design = demo_design("blister")
     project_id = storage.create_project(BLISTER_PROBLEM, "ok", design)
     revision = storage.get_revision(project_id, 1)
     assert revision is not None and revision.schema_version == DESIGN_SCHEMA_VERSION

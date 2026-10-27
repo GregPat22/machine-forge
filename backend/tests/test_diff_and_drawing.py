@@ -4,15 +4,14 @@ import io
 
 import ezdxf
 
-from app.llm.mock import _initial_design
+from app.llm.mock import demo_design
 from app.services.diff import diff_designs
 from app.services.drawing import to_dxf, to_svg
 from app.services.layout import compute_layout
-from tests.conftest import BLISTER_PROBLEM
 
 
 def test_diff_reports_added_removed_and_modified() -> None:
-    before = _initial_design(BLISTER_PROBLEM)
+    before = demo_design("blister")
     after = before.model_copy(deep=True)
     after.layout_style = "u_shape"
     after.open_questions.append("Which film width?")
@@ -39,20 +38,20 @@ def test_diff_reports_added_removed_and_modified() -> None:
 
 
 def test_diff_of_identical_designs_is_empty() -> None:
-    design = _initial_design(BLISTER_PROBLEM)
+    design = demo_design("blister")
     d = diff_designs(design, design.model_copy(deep=True), 1, 1)
     assert not (d.machine or d.lists or d.stations or d.components)
 
 
 def test_svg_top_view() -> None:
-    design = _initial_design(BLISTER_PROBLEM)
+    design = demo_design("blister")
     svg = to_svg(compute_layout(design), design, 3)
     assert svg.startswith("<svg") and svg.rstrip().endswith("</svg>")
     assert "1. Film unwind and forming" in svg and "revision 3" in svg and " mm</text>" in svg
 
 
 def test_dxf_opens_in_ezdxf_with_layers_and_entities() -> None:
-    design = _initial_design(BLISTER_PROBLEM)
+    design = demo_design("blister")
     layout = compute_layout(design)
     doc = ezdxf.read(io.StringIO(to_dxf(layout, design, 1)))
     assert doc.dxfversion == "AC1009"
