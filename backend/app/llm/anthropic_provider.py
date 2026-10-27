@@ -2,14 +2,20 @@
 
 from __future__ import annotations
 
-import json
 import time
 
 import anthropic
-from pydantic import ValidationError
 
-from app.llm.base import LLMError, LLMNotConfigured, ProgressFn, T, Turn, progress_from_text
-from app.schema import strict_schema
+from app.llm.base import (
+    LLMError,
+    LLMNotConfigured,
+    ProgressFn,
+    T,
+    Turn,
+    answer_with_repair,
+    progress_from_text,
+    schema_instructions,
+)
 
 FALLBACK_BETA = "server-side-fallback-2026-07-01"
 PROGRESS_INTERVAL_S = 0.4
@@ -17,6 +23,11 @@ PROGRESS_INTERVAL_S = 0.4
 
 class AnthropicProvider:
     name = "anthropic"
+    # Strict mode allows 16 nullable fields per request and the answer schema has more, so the schema goes
+    # in the system prompt and our code validates the answer (ADR 0014).
+    strict_schema = False
+    tools = True
+    thinking = True
 
     def __init__(self, model: str, effort: str = "high", client: anthropic.Anthropic | None = None):
         self.model = model
@@ -32,6 +43,11 @@ class AnthropicProvider:
     def structured(
         self, *, system: str, turns: list[Turn], output: type[T], on_progress: ProgressFn | None = None
     ) -> T:
+        system = f"{system}\n\n{schema_instructions(output)}"
+        return answer_with_repair(lambda t: self._complete(system, t, on_progress), turns, output)
+
+    def _complete(self, system: str, turns: list[Turn], on_progress: ProgressFn | None) -> str:
+        """One streamed call; returns the answer text."""
         text, thought = "", ""
         last_report = 0.0
 
@@ -52,11 +68,8 @@ class AnthropicProvider:
                 messages=list(turns),
                 # Summarized thinking gives the user something to read while the model reasons.
                 thinking={"type": "adaptive", "display": "summarized"},
-                output_config={
-                    "effort": self.effort,
-                    "format": {"type": "json_schema", "schema": strict_schema(output)},
-                },
-                # The system prompt is identical on every call, so cache it.
+                output_config={"effort": self.effort},
+                # The system prompt (with the schema) is identical on every call, so cache it.
                 cache_control={"type": "ephemeral"},
                 # If a safety classifier declines, let the API retry on its recommended fallback model.
                 betas=[FALLBACK_BETA],
@@ -91,7 +104,4 @@ class AnthropicProvider:
         answer = next((block.text for block in message.content if block.type == "text"), None)
         if answer is None:
             raise LLMError("The model returned no answer.")
-        try:
-            return output.model_validate(json.loads(answer))
-        except (json.JSONDecodeError, ValidationError) as exc:
-            raise LLMError(f"The model's answer did not match the design schema: {exc}") from exc
+        return answer

@@ -408,6 +408,9 @@ def _refine(design: MachineDesign) -> PatchUpdate:
 class MockProvider:
     name = "mock"
     model = "demo-engine"
+    strict_schema = True  # answers are built as PatchUpdate objects, so they always match the schema
+    tools = False
+    thinking = False
 
     def __init__(self, scenario: str | None = None) -> None:
         chosen = scenario or os.environ.get("MF_MOCK_SCENARIO", "").strip().lower() or DEFAULT_SCENARIO

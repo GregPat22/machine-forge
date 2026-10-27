@@ -36,15 +36,23 @@ def _parse_rates(raw: str) -> dict[str, float]:
 
 @dataclass(frozen=True)
 class Settings:
-    # LLM: "anthropic" (Claude API), "openai_compatible" (Ollama, vLLM, Azure OpenAI, ...) or "mock".
+    # LLM: "anthropic" (Claude API), "openai" (OpenAI API), "gemini" (Google Gemini API),
+    # "openai_compatible" (Ollama, vLLM, Azure OpenAI, ...) or "mock".
     llm_provider: str = "anthropic"
     anthropic_model: str = "claude-opus-5-5"
     anthropic_effort: str = "high"
     openai_base_url: str = "http://localhost:11434/v1"
     openai_api_key: str = ""
     openai_model: str = "llama3.1"
+    # Native OpenAI and Gemini: no default model, the user picks one (model names change often).
+    openai_native_api_key: str = ""
+    openai_native_model: str = ""
+    gemini_api_key: str = ""
+    gemini_model: str = ""
     # Answers the AI may give for one request when its patches are rejected (the first one included).
     max_repair_attempts: int = 3
+    # Largest project JSON file the import endpoint accepts.
+    max_import_bytes: int = 20 * 1024 * 1024
 
     db_path: Path = BACKEND_DIR / "data" / "machine-forge.db"
 
@@ -91,7 +99,12 @@ def load_settings() -> Settings:
         openai_base_url=env("MF_OPENAI_BASE_URL", "http://localhost:11434/v1"),
         openai_api_key=env("MF_OPENAI_API_KEY", ""),
         openai_model=env("MF_OPENAI_MODEL", "llama3.1"),
+        openai_native_api_key=env("OPENAI_API_KEY", ""),
+        openai_native_model=env("MF_OPENAI_NATIVE_MODEL", ""),
+        gemini_api_key=env("GEMINI_API_KEY", ""),
+        gemini_model=env("MF_GEMINI_MODEL", ""),
         max_repair_attempts=_attempts(env("MF_MAX_REPAIR_ATTEMPTS", "3")),
+        max_import_bytes=int(float(env("MF_MAX_IMPORT_MB", "20")) * 1024 * 1024),
         db_path=Path(env("MF_DB_PATH", str(BACKEND_DIR / "data" / "machine-forge.db"))),
         mouser_api_key=env("MOUSER_API_KEY", ""),
         nexar_client_id=env("NEXAR_CLIENT_ID", ""),
