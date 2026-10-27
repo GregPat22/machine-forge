@@ -161,7 +161,7 @@ def test_capability_flags_are_reported() -> None:
     assert flags(OpenAIProvider(model="gpt-test", api_key="k")) == (True, True, False)
     assert flags(GeminiProvider(model="gemini-test", api_key="k")) == (False, True, False)
     assert flags(OpenAICompatibleProvider("http://llm.local/v1", "llama3.1")) == (True, False, False)
-    assert flags(MockProvider()) == (True, False, False)
+    assert flags(MockProvider(scenario="blister")) == (True, False, False)
 
 
 def test_anthropic_repairs_an_answer_that_does_not_match_the_schema() -> None:
