@@ -9,7 +9,6 @@ the document says so.
 from __future__ import annotations
 
 import io
-import re
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
@@ -17,7 +16,7 @@ from pathlib import Path
 from pydantic import BaseModel
 
 from app.models import MachineDesign
-from app.services.io_points import SIGNAL_TYPES, io_points, io_totals, station_codes
+from app.services.io_points import SIGNAL_TYPES, components_without_signals, io_points, io_totals, station_codes
 from app.services.layout import compute_layout
 from app.services.spare_parts import build_catalog
 
@@ -59,8 +58,16 @@ class TechnicalDocument(BaseModel):
 
 def io_list(design: MachineDesign) -> tuple[list[list[str]], Counter[str]]:
     points = io_points(design)
-    rows = [[p.tag, p.station.name, p.component.name, p.kind, p.description] for p in points]
+    rows = [[p.tag, p.station.name, p.component.name, p.kind, p.description, p.mechanism or ""] for p in points]
     return rows, io_totals(points)
+
+
+def missing_signals_line(design: MachineDesign) -> str:
+    missing = components_without_signals(design)
+    if not missing:
+        return ""
+    names = ", ".join(f"{c.name} ({s.name})" for s, c in missing)
+    return f"No signals given for {len(missing)} component{'s' if len(missing) > 1 else ''}, not counted: {names}."
 
 
 # --- hazards and safety functions ----------------------------------------------------------------
@@ -141,14 +148,9 @@ def cycle_check(design: MachineDesign) -> list[str]:
     cycles_per_min = 60 / (slowest.cycle_time_s or 1)
     lines = [f"Slowest station: {slowest.name} at {slowest.cycle_time_s:g} s/cycle, "
              f"so the line can run at most {cycles_per_min:.1f} cycles/min."]
-    match = re.search(r"(\d[\d.,]*)\s*([^/]*)/\s*(min|h)", design.target_rate_text or "")
-    if match:
-        required = float(match.group(1).replace(",", "."))
-        per_min = required if match.group(3) == "min" else required / 60
-        per_cycle = per_min / cycles_per_min
-        unit = match.group(2).strip() or "products"
-        lines.append(f"Required throughput {design.target_rate_text} → each cycle must handle at least "
-                     f"{per_cycle:.1f} {unit} (multiple lanes or products per cycle).")
+    if design.target_rate_text:  # free text: shown, never parsed (rule 1)
+        lines.append(f"Required throughput as stated: {design.target_rate_text} "
+                     "(free text, not compared with the cycle time).")
     return lines
 
 
@@ -199,10 +201,11 @@ def build_document(design: MachineDesign, revision: int) -> TechnicalDocument:
         DocSection(
             id="io", title="4. I/O list (estimate)",
             paragraphs=[f"Totals — {io_summary_text}.",
-                        f"PLC sizing with ~20% spare: {sizing}." if sizing else ""],
-            table=DocTable(columns=["Tag", "Station", "Component", "Type", "Description"], rows=io_rows),
-            note="Estimated by rules from component categories (e.g. a cylinder = 1 valve output + 2 end-position "
-                 "inputs). Review it against the electrical design.",
+                        f"PLC sizing with ~20% spare: {sizing}." if sizing else "",
+                        missing_signals_line(design)],
+            table=DocTable(columns=["Tag", "Station", "Component", "Type", "Description", "Mechanism"], rows=io_rows),
+            note="Counted from each component's signals; descriptions follow its category (e.g. a cylinder: "
+                 "valve coil and two end positions). Review it against the electrical design.",
         ),
         DocSection(id="utilities", title="5. Utilities", bullets=design.utilities or ["To be defined."]),
         DocSection(

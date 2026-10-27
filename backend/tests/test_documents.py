@@ -5,7 +5,7 @@ import io
 from docx import Document
 
 from app.llm.mock import demo_design
-from app.models import Component, MachineDesign, Product, Spec, Station, Step
+from app.models import Component, MachineDesign, Product, Signals, Spec, Station, Step
 from app.services.documents import build_document, cycle_check, io_list, safety_function_rows, to_docx, to_markdown
 
 
@@ -15,15 +15,17 @@ def _small_design() -> MachineDesign:
         stations=[
             Station(id="s1", name="Press", function="f", steps=[Step(id="t", order=1, kind="fixed_duration", duration_s=1.0)],
                     components=[
-                Component(id="cyl", name="Cylinder", category="pneumatic_actuator", quantity=2),
+                Component(id="cyl", name="Cylinder", category="pneumatic_actuator", quantity=2, role="actuator",
+                          signals=Signals(do=1, di=2)),
                 Component(id="tc", name="Thermocouple", category="sensor", quantity=1,
-                          specs=[Spec(name="type", value="J")]),
-                Component(id="ax", name="Servo", category="servo_motor", quantity=1),
+                          specs=[Spec(name="type", value="J")], role="sensor", signals=Signals(ai=1)),
+                Component(id="ax", name="Servo", category="servo_motor", quantity=1, role="actuator", signals=Signals(axes=1)),
                 Component(id="heater", name="Heater", category="heating", quantity=1,
-                          specs=[Spec(name="power", value="1 kW")]),
+                          specs=[Spec(name="power", value="1 kW")], role="actuator", signals=Signals(do=1)),
             ]),
             Station(id="safe", name="Safety", kind="safety", function="f", components=[
-                Component(id="door", name="Door switch", category="safety", quantity=2),
+                Component(id="door", name="Door switch", category="safety", quantity=2, role="sensor",
+                          signals=Signals(di=2)),
             ]),
         ],
     )
@@ -50,10 +52,10 @@ def test_safety_functions_follow_components() -> None:
     assert all(r[3].startswith("to be determined") for r in safety_function_rows(_small_design()))
 
 
-def test_cycle_check_relates_cycle_time_to_throughput() -> None:
+def test_cycle_check_shows_the_stated_rate_without_parsing_it() -> None:
     lines = cycle_check(_small_design())
     assert "60.0 cycles/min" in lines[0]
-    assert "2.0 parts" in lines[1]
+    assert lines[1] == "Required throughput as stated: 120 parts/min (free text, not compared with the cycle time)."
 
 
 def test_document_sections_and_exports() -> None:
