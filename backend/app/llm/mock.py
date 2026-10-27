@@ -337,6 +337,9 @@ def _refine(design: MachineDesign, request: str) -> PatchUpdate:
 class MockProvider:
     name = "mock"
     model = "demo-engine"
+    strict_schema = True  # answers are built as PatchUpdate objects, so they always match the schema
+    tools = False
+    thinking = False
 
     def structured(
         self, *, system: str, turns: list[Turn], output: type[T], on_progress: ProgressFn | None = None
