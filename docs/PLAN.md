@@ -339,7 +339,7 @@ update, presses play and watches pieces move at the simulated rate.
 labelled envelope. A parametric shape draws only what its parameters size. No fillers, no
 regex, no random seeds in visuals.
 
-### Phase 5: Module library and imports (5 to 7 weeks)
+### Phase 5: Module library and imports (6 to 9 weeks)
 
 **Goal.** The AI composes from real modules; companies bring their own.
 
@@ -356,6 +356,11 @@ regex, no random seeds in visuals.
 - Company library: CRUD in the UI, per workspace, stored outside the repo.
 - **STEP → glTF** import (`machine-forge[cad]`, OCP/cadquery): mesh, bounding box, optional
   mount frame picking in the viewer. Direct glTF upload as fallback.
+- **Whole-machine STEP import** (ADR 0017): the assembly tree is shown; the user assigns
+  subassemblies to stations (the AI may propose from part names, the user confirms). Each
+  assigned subassembly becomes a station with its CAD geometry, a measured envelope and the
+  placement read from the file; unassigned parts stay as labelled unassigned geometry.
+  Mechanisms and steps are then added by prompt or in the editor; the engines compute.
 - **Excel/CSV BOM import**: AI-assisted column mapping (EN/IT headers), user confirms, rows
   become components with roles; unmapped rows kept as `other` and flagged.
 - AI loop: `search_library` tool (or injected catalog summary for providers without tools);
@@ -363,7 +368,7 @@ regex, no random seeds in visuals.
   flagged `unverified` in the UI and in documents.
 
 **Out of scope.** Vendor CAD downloads, PARTcommunity/TraceParts integrations, kinematic rigs
-inside imported CAD.
+inside imported CAD, automatic recognition of stations or mechanisms from geometry.
 
 **Tests.**
 - Library validation: every seed module instantiates across its full parameter range without
@@ -371,6 +376,9 @@ inside imported CAD.
   range, and every solid stays inside the module's envelope.
 - STEP fixtures: permissively licensed sample STEP files (OCCT/FreeCAD test data) convert, and
   the bounding box matches known dimensions within 0.1 mm.
+- Whole-machine import: a permissively licensed multi-part STEP assembly imports; assigned
+  subassemblies keep their relative placement within 0.1 mm; no station is created without the
+  user's confirmation; a file over the size limit is rejected with a clear message.
 - BOM import fixtures in English and Italian; a messy sheet with merged headers maps with the
   expected warnings.
 - AI eval: 20 golden prompts; library hit rate ≥ 80 % with the mock and recorded live fixtures;
@@ -379,7 +387,9 @@ inside imported CAD.
 
 **Done when.** A company can upload a STEP of their station, give it parameters and a BOM, and
 the AI uses it in a new machine with correct dimensions and timing. The mock blister machine,
-built from seed modules, shows every station as its module's shape, not as a box.
+built from seed modules, shows every station as its module's shape, not as a box. Greg
+imports a multi-part STEP machine, assigns its subassemblies to stations, adds mechanisms, and
+sees cycle time and throughput computed.
 
 **Agent brief.** Library assets are data. No module logic in code paths except formula
 evaluation. Imported files are untrusted: parse in isolation, size limits, no code execution.
