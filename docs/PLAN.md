@@ -32,8 +32,8 @@ Throughput simulation (Plant Simulation, FlexSim, AnyLogic, open-source JaamSim)
 mechatronic simulation (NX MCD, Emulate3D, Visual Components) exist and are mature for detailed
 engineering, closed, and priced per seat in the tens of thousands. Nobody offers the concept-stage
 loop where one prompt moves time, throughput, footprint, BOM and cost together, and nobody offers
-it open source. The timing diagram, the artifact that ties mechanisms to cycle time, is done in
-Excel in most machine builders. That is the gap.
+it open source. The timing diagram, the artifact that ties mechanisms to cycle time, is often
+done in Excel; dedicated tools exist but are niche. That is the gap.
 
 ## 2. Verdict on the v0.3 codebase
 
@@ -77,7 +77,7 @@ Excel in most machine builders. That is the gap.
 
 | # | Decision | Why |
 |---|---|---|
-| D1 | Both simulation kinds, concept fidelity. **A = throughput (discrete-event)** first, **B = mechanism timing (motion profiles → cycle time → timing diagram)** second. No physics, no collision. Deep B (cam synthesis, swept-volume interference) is roadmap, gated on user demand. | A is computable from the data the AI can produce on day one; B-lite replaces Excel timing diagrams; deep B competes with NX MCD and never ends. |
+| D1 | Both simulation kinds, concept fidelity. **A = throughput (discrete-event)** first, **B = mechanism timing (motion profiles → cycle time → timing diagram)** second. No physics, no collision. Deep B (cam synthesis, swept-volume interference) is roadmap, gated on user demand. | A is computable from the data the AI can produce on day one; B-lite replaces the timing diagram often kept in Excel; deep B competes with NX MCD and never ends. |
 | D2 | **Module library** is the core anti-slop mechanism. The AI selects and parametrizes library modules; it invents a custom station only when nothing fits, and the UI marks it as unverified. | Real parameters come from the library, not from the model's imagination. "Modify an existing machine" starts from real data. |
 | D3 | Simulation results are stored per revision and **diffed** like the BOM. | What-if is the main use case. |
 | D4 | Import priority: **STEP** (geometry, every CAD exports it) → **Excel/CSV BOM** → **AutomationML** (IEC 62714, neutral topology/layout) → PLCopen XML (exists). Project JSON export/import from Phase 1. | SolidWorks dominates SME machine builders; STEP covers SolidWorks, Inventor, NX, Creo. AutomationML is the only open format Siemens and Visual Components both speak. |
