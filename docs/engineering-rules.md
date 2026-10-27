@@ -7,8 +7,9 @@ v0.3) and section 7.
 1. **No behaviour from display names.** Logic reads structured fields (`kind`, `category`, and
    from model v2 `role`, `signals`, `motion`), never `.name`, `.function`, `.summary` or any
    free text, to decide what to draw, compute or generate.
-   *Check:* a reviewer reads every new regex, `.lower()` or string comparison on a model
-   string. No automated test covers this rule yet.
+   *Check:* `tests/test_repo_rules.py` fails on a comparison, keyword or regex test on a name
+   or other free text in `backend/app` and `frontend/src`, with a short allowlist for display and
+   non-design names. It is a grep, so a reviewer still reads every new string comparison.
 
 2. **Every number has provenance.** Anything shown to the user is a model field or the output of
    a named engine function. The UI can show which.

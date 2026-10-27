@@ -7,20 +7,22 @@ a spec names it.
 
 Found 2026-10-23 by scanning for `.lower()`, regex, `startswith` and `in name` checks.
 
-### Phase 1 item: `backend/app/services/io_points.py`
-
-`_text()` (line 34) joins `component.name` and the spec names and values into one lowercase
-string, and `signals()` (lines 43-77) decides the I/O of each component by keyword in that
-string ("thermocouple", "ejector", "axis", "gun", "door", "camera", "terminal", ...). Renaming a
-component changes the generated I/O list and the PLC skeleton.
-Replace with the model v2 fields `role`, `signals` and `motion`, filled by the AI and validated
-by code. This is PLAN section 2, item 4.
+`io_points.py` (I/O by keyword in component names) and the regex over the required rate in
+`documents.py` were fixed in Phase 1 step 3; `tests/test_repo_rules.py` now guards rule 1.
 
 ### Other
 
-- `backend/app/services/documents.py:144`: regex over the free-text `design.throughput` to
-  check the required rate against the slowest cycle. Replace with a numeric
-  `throughput_per_min` and unit field.
+- `backend/app/services/documents.py`, `cycle_check`: the required rate is free text
+  (`target_rate_text`), so it is shown but no longer compared with the slowest cycle. The check
+  comes back with a numeric rate field (Phase 3, throughput).
+- `backend/app/llm/mock.py`, cartoner: the hot-melt unit and the hot-melt guns are both
+  category `dosing`, so since Phase 1 step 3 both get a "dispense" output and the unit is a
+  dispense step in the PLC skeleton instead of running continuously. Before, only the word "gun"
+  in the name told them apart. Agreed fix (Greg, 2026-10-27): category `pump` for the unit, as a
+  separate small change after step 3.
+- PLC view: a design migrated from v1 has no `signals`, so it has no I/O points and the PLC
+  stations say "no actuated components detected" without saying why (ADR 0015). Only the I/O list
+  in the documents names the components without signals. `plc.py` is frozen.
 - `backend/app/services/sourcing.py:30-41`: `_similar` matches a spare part to a price-list
   entry by word overlap of names and descriptions. Fuzzy suggestion only. Replace with
   `part_number`, `manufacturer` and structured spec keys.
@@ -40,7 +42,4 @@ titles in `rfq.py`, and `plc.py:352` (filters on generated station codes, not la
 
 ## Rule checks that are not enforced
 
-- Rule 1 (no behaviour from display names) has no automated test. `tests/test_repo_rules.py`
-  only checks rule 4 (no import of the deleted render). Phase 1 item: write the grep test for
-  rule 1 together with the `io_points.py` fix, so it can start with no allowlist.
 - Rule 7: `tests/test_migration.py` builds the v0.3 database in code. Add a committed old-database fixture and test for rule 7.

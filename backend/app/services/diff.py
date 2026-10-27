@@ -11,7 +11,7 @@ from typing import Literal
 
 from pydantic import BaseModel
 
-from app.models import Component, MachineDesign, Station
+from app.models import Component, MachineDesign, Signals, Station
 
 ChangeKind = Literal["added", "removed", "modified"]
 
@@ -22,7 +22,7 @@ LIST_FIELDS = ("utilities", "assumptions", "open_questions")
 STATION_FIELDS = ("name", "kind", "sequence", "function", "cycle_time_s", "length_mm", "width_mm", "height_mm")
 COMPONENT_FIELDS = (
     "name", "category", "quantity", "manufacturer", "part_number", "make_or_buy",
-    "wear_part", "criticality", "recommended_spares", "notes",
+    "wear_part", "criticality", "recommended_spares", "notes", "role", "signals", "motion",
 )
 
 
@@ -66,6 +66,9 @@ class DesignDiff(BaseModel):
 def _fmt(value: object) -> str | None:
     if value is None:
         return None
+    if isinstance(value, Signals):
+        counts = [(k.upper() if k != "axes" else "Axes", n) for k, n in value.model_dump().items() if n]
+        return ", ".join(f"{k} {n}" for k, n in counts) or "none"
     if isinstance(value, bool):
         return "yes" if value else "no"
     if isinstance(value, float) and value.is_integer():

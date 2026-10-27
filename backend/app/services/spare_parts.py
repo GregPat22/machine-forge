@@ -23,6 +23,7 @@ def _key(manufacturer: str | None, part_number: str | None, component_id: str) -
 def build_catalog(design: MachineDesign) -> list[SparePart]:
     """One line per distinct part. Identical part numbers used in several stations are merged."""
     parts: dict[str, SparePart] = {}
+    station_ids: dict[str, list[str]] = {}  # stations a part is used in, by id (names are display only)
     stations = sorted(design.stations, key=lambda s: (s.sequence == 0, s.sequence))
     for station in stations:
         for comp in station.components:
@@ -45,13 +46,15 @@ def build_catalog(design: MachineDesign) -> list[SparePart]:
                     criticality=comp.criticality,
                     recommended_spares=comp.recommended_spares,
                 )
+                station_ids[key] = [station.id]
                 continue
             existing.quantity_in_machine += comp.quantity
             existing.recommended_spares = max(existing.recommended_spares, comp.recommended_spares)
             existing.wear_part = existing.wear_part or comp.wear_part
             if _CRITICALITY_RANK[comp.criticality] < _CRITICALITY_RANK[existing.criticality]:
                 existing.criticality = comp.criticality
-            if station.name not in existing.used_in:
+            if station.id not in station_ids[key]:
+                station_ids[key].append(station.id)
                 existing.used_in.append(station.name)
             existing.component_ids.append(comp.id)
 
