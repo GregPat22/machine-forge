@@ -21,10 +21,12 @@ concept and modification stage. Design new machines, modify existing ones, run w
 
 ### What it is not
 
-- Not a CAD system. It reads STEP, it does not produce engineering geometry.
+- Not a CAD system. It reads STEP and, on the roadmap, writes its concept layout as STEP; it
+  does not produce engineering geometry.
 - Not a physics engine. No collisions, no dynamics, no FEM.
 - Not a PLC IDE and never a source of safety logic.
-- Not a renderer. Visual output exists to show the model and the simulation, never to impress.
+- Not a renderer. The view shows only what the model knows, but shows it well: materials by part
+  type, neutral lighting, soft shadows (ADR 0016). No photo-realism, nothing decorative.
 
 ### Market position (honest)
 
@@ -32,8 +34,8 @@ Throughput simulation (Plant Simulation, FlexSim, AnyLogic, open-source JaamSim)
 mechatronic simulation (NX MCD, Emulate3D, Visual Components) exist and are mature for detailed
 engineering, closed, and priced per seat in the tens of thousands. Nobody offers the concept-stage
 loop where one prompt moves time, throughput, footprint, BOM and cost together, and nobody offers
-it open source. The timing diagram, the artifact that ties mechanisms to cycle time, is done in
-Excel in most machine builders. That is the gap.
+it open source. The timing diagram, the artifact that ties mechanisms to cycle time, is often
+done in Excel; dedicated tools exist but are niche. That is the gap.
 
 ## 2. Verdict on the v0.3 codebase
 
@@ -77,7 +79,7 @@ Excel in most machine builders. That is the gap.
 
 | # | Decision | Why |
 |---|---|---|
-| D1 | Both simulation kinds, concept fidelity. **A = throughput (discrete-event)** first, **B = mechanism timing (motion profiles → cycle time → timing diagram)** second. No physics, no collision. Deep B (cam synthesis, swept-volume interference) is roadmap, gated on user demand. | A is computable from the data the AI can produce on day one; B-lite replaces Excel timing diagrams; deep B competes with NX MCD and never ends. |
+| D1 | Both simulation kinds, concept fidelity. **A = throughput (discrete-event)** first, **B = mechanism timing (motion profiles → cycle time → timing diagram)** second. No physics, no collision. Deep B (cam synthesis, swept-volume interference) is roadmap, gated on user demand. | A is computable from the data the AI can produce on day one; B-lite replaces the timing diagram often kept in Excel; deep B competes with NX MCD and never ends. |
 | D2 | **Module library** is the core anti-slop mechanism. The AI selects and parametrizes library modules; it invents a custom station only when nothing fits, and the UI marks it as unverified. | Real parameters come from the library, not from the model's imagination. "Modify an existing machine" starts from real data. |
 | D3 | Simulation results are stored per revision and **diffed** like the BOM. | What-if is the main use case. |
 | D4 | Import priority: **STEP** (geometry, every CAD exports it) → **Excel/CSV BOM** → **AutomationML** (IEC 62714, neutral topology/layout) → PLCopen XML (exists). Project JSON export/import from Phase 1. | SolidWorks dominates SME machine builders; STEP covers SolidWorks, Inventor, NX, Creo. AutomationML is the only open format Siemens and Visual Components both speak. |
@@ -107,7 +109,7 @@ frontend (React + R3F)                 backend (FastAPI)
                                             scene    : design + layout + trace -> scene JSON + animation tracks
                                             bom/cost, documents, io_points, plc, drawing (adapted)
                                           Library
-                                            modules: parameters, timing formulas, envelope/glTF, BOM template
+                                            modules: parameters, timing formulas, shape/envelope/glTF, BOM template
                                           Import / export
                                             STEP -> glTF, Excel BOM, AutomationML, PLCopen XML, project JSON
                                           Storage: SQLite (workspace_id everywhere)
@@ -137,9 +139,10 @@ frontend (React + R3F)                 backend (FastAPI)
 
 Each phase lists: goal, scope, out of scope, tests, done criteria, agent brief. Phases are
 sequential. A phase is done when its tests pass in CI and the done criteria are checked by Greg
-in the running app. Nothing from a later phase starts early.
+in the running app. Nothing from a later phase starts early. Phases carry no time estimates
+and nobody tracks a schedule (ADR 0018): a phase takes as long as its tests and done criteria take.
 
-### Phase 0: Cleanup and guardrails (about 1 week)
+### Phase 0: Cleanup and guardrails
 
 **Goal.** Remove what misleads, write down the rules, make the repo ready for agents.
 
@@ -165,7 +168,7 @@ CI green, docs updated.
 
 **Agent brief.** Pure removal and documentation. No refactors "while we are here".
 
-### Phase 1: Model v2 and patch-based AI edits (2 to 3 weeks)
+### Phase 1: Model v2 and patch-based AI edits
 
 **Goal.** A schema that can carry simulation, and an AI loop that edits it safely.
 
@@ -207,7 +210,7 @@ silent bad design.
 **Agent brief.** Schema first, tests second, prompts third. Keep `MockProvider` honest (no
 hidden shortcuts that only work for the demo prompts).
 
-### Phase 2: Timing engine, simulation B-lite (2 weeks)
+### Phase 2: Timing engine, simulation B-lite
 
 **Goal.** Cycle time per station computed from mechanisms and steps, shown as a timing diagram.
 
@@ -247,7 +250,7 @@ limiting step, and changing a stroke in the editor changes the time without any 
 source in a comment (textbook or standard). No "approximately" code paths: if a case is not
 handled, raise.
 
-### Phase 3: Throughput engine, simulation A (2 to 3 weeks)
+### Phase 3: Throughput engine, simulation A
 
 **Goal.** Pieces per minute, bottleneck, blocking/starving, WIP and time-in-system from the
 process graph, with an event trace the 3D view can play.
@@ -284,7 +287,7 @@ conveyor speed in the editor changes the rate; the diff view shows the change.
 **Agent brief.** SimPy only; no custom scheduler. Trace format documented in `docs/trace.md`
 before code. Statistical assertions use fixed seeds and tolerances written in the test.
 
-### Phase 4: Layout v2, scene and playback (3 weeks)
+### Phase 4: Layout v2, scene and playback
 
 **Goal.** An honest 3D view: real envelopes, editable placement, dimensions measured from
 geometry, and the simulation playing on it.
@@ -294,53 +297,71 @@ geometry, and the simulation playing on it.
   user-editable** (drag in 3D, numeric in the editor); checks: overlaps, aisle and operator
   clearances (configurable), footprint from actual placed geometry.
 - `engines/scene.py`: design + layout + results → **scene JSON**: per station a glTF asset
-  reference (from the library, Phase 5) or a labelled parametric envelope (box/cylinder with
-  the station name and dimensions), transports as paths, mechanisms as animatable nodes with
-  axis definitions. Animation tracks: pieces from the DES trace, axes from Phase 2 profiles.
+  reference (from the library, Phase 5), a module's **parametric shape** (simple solids, each
+  sized from a module parameter and recording which one, ADR 0016) or a labelled parametric
+  envelope (box/cylinder with the station name and dimensions), transports as paths,
+  mechanisms as animatable nodes with axis definitions. Animation tracks: pieces from the DES
+  trace, axes from Phase 2 profiles.
+- **Shape kit** (ADR 0016), the generic parts every parametric shape is built from: profile
+  frame, guard panel, roller and belt conveyor, sheet-metal cabinet, feet, pallet, product box,
+  simple robot arm sized from its reach. Each solid carries a **material kind** (aluminium
+  profile, clear guard, painted steel, product, moving part) set by the module definition.
 - Frontend: rewrite the viewer on **react-three-fiber + drei** (`GLTF` loader,
   `TransformControls` for dragging, orthographic/perspective toggle, measured dimension
   overlays). **Timeline** with play/pause/scrub at simulated time; pieces move exactly when the
   trace says. Station selection shows parameters, components, cycle time, utilisation.
+  Materials mapped from material kinds, neutral environment lighting, soft shadows.
 - Dimension overlays read bounding boxes from the scene, never from typed text.
 - Keep SVG/DXF top view, generated from the same layout.
 
-**Out of scope.** Materials, lighting beyond a neutral studio, anything decorative. No product
-shapes beyond the product's own box/cylinder dimensions.
+**Out of scope.** Photo-realism (textures, reflections, post-processing), anything decorative,
+materials chosen any other way than by material kind. No product shapes beyond the product's
+own box/cylinder dimensions.
 
 **Tests.**
 - Layout invariants: no two placed envelopes overlap after auto-layout; clearance violations are
   reported for a deliberately tight fixture; footprint equals the hull of placed boxes.
 - Scene snapshots: golden scene JSON per mock machine, diffed in CI (fail on unintended change).
+- Parametric shapes: every solid in the scene names the parameter it is sized from; changing
+  that parameter changes the solid's dimension and nothing else.
+- Shape kit: a fixture scene with every kit part at the ends of its parameter ranges builds
+  without errors; every solid has a material kind from the fixed list.
 - Trace playback: at time t the piece's position in the scene equals the interpolation between
   the trace's `from`/`to` nodes (unit test on the interpolation function).
 - Playwright: load mock project, drag a station, see footprint update; scrub the timeline and
   see the time readout change; select a station and read its cycle time.
 - A test that fails if any file under `frontend/src` contains a regex over `design.name`,
-  `station.name` or `component.name`.
+  `station.name` or `component.name`, or picks a material by anything but material kind.
 
 **Done when.** Greg opens the mock blister machine, drags a station, the footprint and the DXF
 update, presses play and watches pieces move at the simulated rate.
 
 **Agent brief.** The viewer renders scene JSON and nothing else. If geometry is unknown, draw a
-labelled envelope. No fillers, no regex, no random seeds in visuals.
+labelled envelope. A parametric shape draws only what its parameters size. No fillers, no
+regex, no random seeds in visuals.
 
-### Phase 5: Module library and imports (3 to 4 weeks)
+### Phase 5: Module library and imports
 
 **Goal.** The AI composes from real modules; companies bring their own.
 
 **Scope.**
 - Library schema (`models/library.py`): module id, kind, parameters with ranges and units,
-  timing formula (reference to a Phase 2 pattern with parameter mapping), envelope formula or
-  glTF asset, mount frames (in/out product points), BOM template with roles and signals,
-  source and license fields.
-- Public **seed library** (12 to 15 modules, our own parametric envelopes): infeed timing screw
-  + star wheel, belt conveyor, indexing conveyor, rotary indexing table, two-axis pick-and-place,
-  three-axis gantry, thermoforming station, sealing station, punching station, labeller,
-  checkweigher, vision inspection, reject pusher, carton magazine + erector, hot-melt flap
-  closer.
+  timing formula (reference to a Phase 2 pattern with parameter mapping), parametric shape,
+  envelope formula or glTF asset, mount frames (in/out product points), BOM template with roles
+  and signals, source and license fields.
+- Public **seed library** (12 to 15 modules, each with our own parametric shape, ADR 0016):
+  infeed timing screw + star wheel, belt conveyor, indexing conveyor, rotary indexing table,
+  two-axis pick-and-place, three-axis gantry, thermoforming station, sealing station, punching
+  station, labeller, checkweigher, vision inspection, reject pusher, carton magazine + erector,
+  hot-melt flap closer.
 - Company library: CRUD in the UI, per workspace, stored outside the repo.
 - **STEP → glTF** import (`machine-forge[cad]`, OCP/cadquery): mesh, bounding box, optional
   mount frame picking in the viewer. Direct glTF upload as fallback.
+- **Whole-machine STEP import** (ADR 0017): the assembly tree is shown; the user assigns
+  subassemblies to stations (the AI may propose from part names, the user confirms). Each
+  assigned subassembly becomes a station with its CAD geometry, a measured envelope and the
+  placement read from the file; unassigned parts stay as labelled unassigned geometry.
+  Mechanisms and steps are then added by prompt or in the editor; the engines compute.
 - **Excel/CSV BOM import**: AI-assisted column mapping (EN/IT headers), user confirms, rows
   become components with roles; unmapped rows kept as `other` and flagged.
 - AI loop: `search_library` tool (or injected catalog summary for providers without tools);
@@ -348,13 +369,17 @@ labelled envelope. No fillers, no regex, no random seeds in visuals.
   flagged `unverified` in the UI and in documents.
 
 **Out of scope.** Vendor CAD downloads, PARTcommunity/TraceParts integrations, kinematic rigs
-inside imported CAD.
+inside imported CAD, automatic recognition of stations or mechanisms from geometry.
 
 **Tests.**
 - Library validation: every seed module instantiates across its full parameter range without
-  errors; timing and envelope formulas return finite values.
+  errors; timing and envelope formulas return finite values; its shape builds across the same
+  range, and every solid stays inside the module's envelope.
 - STEP fixtures: permissively licensed sample STEP files (OCCT/FreeCAD test data) convert, and
   the bounding box matches known dimensions within 0.1 mm.
+- Whole-machine import: a permissively licensed multi-part STEP assembly imports; assigned
+  subassemblies keep their relative placement within 0.1 mm; no station is created without the
+  user's confirmation; a file over the size limit is rejected with a clear message.
 - BOM import fixtures in English and Italian; a messy sheet with merged headers maps with the
   expected warnings.
 - AI eval: 20 golden prompts; library hit rate ≥ 80 % with the mock and recorded live fixtures;
@@ -362,12 +387,15 @@ inside imported CAD.
 - Playwright: import a STEP, see it placed with correct dimensions; import a BOM, see components.
 
 **Done when.** A company can upload a STEP of their station, give it parameters and a BOM, and
-the AI uses it in a new machine with correct dimensions and timing.
+the AI uses it in a new machine with correct dimensions and timing. The mock blister machine,
+built from seed modules, shows every station as its module's shape, not as a box. Greg
+imports a multi-part STEP machine, assigns its subassemblies to stations, adds mechanisms, and
+sees cycle time and throughput computed.
 
 **Agent brief.** Library assets are data. No module logic in code paths except formula
 evaluation. Imported files are untrusted: parse in isolation, size limits, no code execution.
 
-### Phase 6: AI tools, what-if loop and evaluation (2 weeks)
+### Phase 6: AI tools, what-if loop and evaluation
 
 **Goal.** Propose → compute → explain, across providers, measured.
 
@@ -397,7 +425,7 @@ did not compute, with any provider configured.
 **Agent brief.** The AI explains; the engines compute. If a provider cannot do tools, degrade to
 the plan/act loop, never to "let the model estimate".
 
-### Phase 7: Interchange, deployment, multi-user basics (2 to 3 weeks)
+### Phase 7: Interchange, deployment, multi-user basics
 
 **Scope.**
 - **AutomationML** export (CAEX topology: stations, transports, placements; PLCopen XML attached)
@@ -418,6 +446,8 @@ Docker e2e in CI (compose up, create mock project, run throughput).
   interference checks with OCCT.
 - PLC generation from the simulated step sequences (same model drives sim and code).
 - Stochastic experiments and optimisation (buffer sizing, lane count).
+- STEP export of the concept layout (parametric shapes, envelopes, placed imported parts) as one
+  assembly a designer opens in any CAD. Concept geometry, labelled as such (ADR 0016).
 - Vendor CAD integrations where terms allow.
 - Postgres, SSO, audit trail.
 
@@ -440,8 +470,9 @@ These go into `docs/engineering-rules.md` and `CLAUDE.md`. Reviewers reject PRs 
    output of a named engine function. The UI can show the source.
 3. **The AI never writes** coordinates, computable durations, rates, dimensions derived from
    geometry, or compliance statements. It proposes structure, parameters, components, reasons.
-4. **No decorative geometry.** Unknown geometry is a labelled envelope. No fillers, no random
-   hardware, no product shapes from regex.
+4. **No decorative geometry.** Unknown geometry is a labelled envelope. A library module draws
+   only solids sized from its parameters, with materials from their material kind. No fillers,
+   no random hardware, no product shapes from regex.
 5. **Engines are deterministic and pure.** Seeded, no I/O, formulas cite their source, unhandled
    cases raise instead of approximating.
 6. **Tests need no network or keys.** Recorded payloads and mock providers only. Live evals are

@@ -50,3 +50,10 @@ titles in `rfq.py`, and `plc.py:352` (filters on generated station codes, not la
 ## Rule checks that are not enforced
 
 - Rule 7: `tests/test_migration.py` builds the v0.3 database in code. Add a committed old-database fixture and test for rule 7.
+
+## Docs to update
+
+- `README.md`, roadmap lines for Phases 4 and 5: still the summary from before ADRs 0016 and 0017.
+  Phase 4 should mention the shape kit, materials and lighting; Phase 5 the parametric module
+  shapes and whole-machine STEP import. Greg asked (2026-10-27) to be reminded; it goes with the
+  communication work, not before.
