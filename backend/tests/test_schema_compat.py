@@ -87,7 +87,9 @@ def test_answer_fixture_is_in_the_strict_shape_and_applies() -> None:
     assert result.ok, result.errors
 
 
-def test_anthropic_sends_the_strict_schema_and_parses_the_answer() -> None:
+def test_anthropic_sends_the_schema_in_the_system_prompt_and_parses_the_answer() -> None:
+    # Claude strict mode allows 16 nullable fields per request and this schema has 51, so Claude gets the
+    # schema as text and our code validates the answer (ADR 0014).
     seen: dict = {}
 
     def handler(request: httpx2.Request) -> httpx2.Response:
@@ -98,7 +100,8 @@ def test_anthropic_sends_the_strict_schema_and_parses_the_answer() -> None:
                                  http_client=anthropic.DefaultHttpxClient(transport=httpx2.MockTransport(handler)))
     update = AnthropicProvider(model="claude-opus-5-5", client=client).structured(
         system="s", turns=[{"role": "user", "content": "x"}], output=PatchUpdate)
-    assert seen["body"]["output_config"]["format"] == {"type": "json_schema", "schema": strict_schema(PatchUpdate)}
+    assert "format" not in seen["body"]["output_config"]
+    assert json.dumps(strict_schema(PatchUpdate)) in seen["body"]["system"]
     assert update == PatchUpdate.model_validate_json(ANSWER)
 
 
