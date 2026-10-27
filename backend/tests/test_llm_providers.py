@@ -11,12 +11,11 @@ import pytest
 
 from app.llm.anthropic_provider import FALLBACK_BETA, AnthropicProvider
 from app.llm.base import LLMError, LLMNotConfigured
-from app.llm.mock import _design_patches, _initial_design
+from app.llm.mock import _design_patches, demo_design
 from app.llm.openai_compatible import OpenAICompatibleProvider
 from app.services.patch import PatchUpdate, apply_patches, empty_design
-from tests.conftest import BLISTER_PROBLEM
 
-ANSWER = PatchUpdate(reply="First version.", patches=_design_patches(_initial_design(BLISTER_PROBLEM))).model_dump_json()
+ANSWER = PatchUpdate(reply="First version.", patches=_design_patches(demo_design("blister"))).model_dump_json()
 
 
 def _design(update: PatchUpdate):

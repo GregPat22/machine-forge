@@ -30,7 +30,12 @@ MF_OPENAI_API_KEY=                # empty for Ollama
 
 # No AI: demo engine
 MF_LLM_PROVIDER=mock
+MF_MOCK_SCENARIO=blister          # or cartoner, filling, assembly
 ```
+
+The demo engine never reads your text. It builds the machine named by `MF_MOCK_SCENARIO`
+(default `blister`), and each request applies its next scripted edit: first a vision station
+and a U-shaped layout, then the layout switches between inline and U-shape.
 
 ## Notes on the Claude provider
 

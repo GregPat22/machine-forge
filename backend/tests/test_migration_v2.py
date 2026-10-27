@@ -10,10 +10,10 @@ from typing import get_args
 
 import pytest
 
-from app.llm.mock import _initial_design, _refine
+from app.llm.mock import _refine, demo_design
 from app.migrations.design_v1 import CATEGORY_ROLES, ComponentCategoryV1, MachineDesignV1, migrate_design, to_v1
 from app.models import MachineDesign, Step
-from app.services.patch import apply_patches
+from app.services.patch import PatchOp, apply_patches
 from app.storage import DESIGN_SCHEMA_VERSION, Storage
 from tests.fixtures.v1.make_fixtures import PROBLEMS
 from tests.test_migration import _write_v03_database
@@ -145,19 +145,46 @@ def test_old_database_opens_after_phase_1(tmp_path: Path) -> None:
     assert after[: len(before)] == before  # old rows are migrated on read, never rewritten
 
 
+# Two v1 fields of the demo machines differ from the v1 mock on purpose (Phase 1 step 4): the
+# summary no longer quotes the problem text, and one open question asks for the axis speeds.
+DEMO_TEXT_FIELDS = ("summary", "open_questions")
+
+
+def _without_demo_text(data: dict) -> dict:
+    return {k: v for k, v in data.items() if k not in DEMO_TEXT_FIELDS}
+
+
 @pytest.mark.parametrize("name", sorted(PROBLEMS))
 def test_mock_output_matches_its_v1_fixture(name: str) -> None:
-    """The step-1 mock emits v2 but must build the same machines as the v1 mock did."""
-    assert to_v1(_initial_design(PROBLEMS[name])).model_dump() == MachineDesignV1.model_validate(_raw(name)).model_dump()
+    """The mock builds the same machines as the v1 mock did, picked by scenario id instead of text."""
+    exported = to_v1(demo_design(name)).model_dump()
+    expected = MachineDesignV1.model_validate(_raw(name)).model_dump()
+    assert PROBLEMS[name] in expected["summary"] and PROBLEMS[name] not in exported["summary"]
+    assert expected["open_questions"] == [] and len(exported["open_questions"]) == 1
+    assert _without_demo_text(exported) == _without_demo_text(expected)
 
 
 def test_mock_refinements_match_their_v1_fixtures() -> None:
-    for request, name in (("add vision inspection", "blister-vision"), ("make it u-shaped", "blister-u-shape")):
-        initial = _initial_design(PROBLEMS["blister"])
-        refined = apply_patches(initial, _refine(initial, request).patches).design
+    """The first demo edit is the v1 'add vision inspection' in a U-shaped layout; the next one
+    switches back to inline, which is the v1 fixture again. The v1 'make it u-shaped' fixture is
+    the demo machine with only its layout patched."""
+    initial = demo_design("blister")
+    u_shaped = apply_patches(initial, [PatchOp(op="set_param", name="layout_style", text="u_shape")]).design
+    assert u_shaped is not None
+    assert to_v1(u_shaped).model_dump() == {
+        **MachineDesignV1.model_validate(_raw("blister-u-shape")).model_dump(),
+        **{field: getattr(initial, field) for field in DEMO_TEXT_FIELDS},
+    }
+
+    expected = _without_demo_text(MachineDesignV1.model_validate(_raw("blister-vision")).model_dump())
+    design = initial
+    for layout in ("u_shape", "inline"):
+        refined = apply_patches(design, _refine(design).patches).design
         assert refined is not None
-        exported = to_v1(refined)
+        assert (refined.summary, refined.open_questions) == (initial.summary, initial.open_questions)
+        design = refined
+        exported = to_v1(design)
         # A patch appends a new station; the v1 mock sorted the list by sequence. In v2 the list
         # order carries no meaning (sequence is derived), so put it in the v1 mock's order.
         exported.stations.sort(key=lambda s: (s.sequence == 0, s.sequence))
-        assert exported.model_dump() == MachineDesignV1.model_validate(_raw(name)).model_dump()
+        assert _without_demo_text(exported.model_dump()) == {**expected, "layout_style": layout}

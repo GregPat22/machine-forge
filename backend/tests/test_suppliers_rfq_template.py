@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 from openpyxl import load_workbook
 
 from app.config import Settings
-from app.llm.mock import _initial_design
+from app.llm.mock import demo_design
 from app.models import Component, MachineDesign, PriceListEntry, Station, SupplierRating
 from app.services.price_list import parse_price_list
 from app.services.rfq import OPEN_MARKET, build_rfq
@@ -59,7 +59,7 @@ def test_rfq_workbook_round_trip() -> None:
     storage = Storage(":memory:")
     storage.replace_price_list([PriceListEntry(supplier="Elettro Srl", part_number="6ES7515-2AM02-0AB0",
                                                unit_price=2150)])
-    data = build_rfq(_initial_design(BLISTER_PROBLEM), 2, storage, "EUR")
+    data = build_rfq(demo_design("blister"), 2, storage, "EUR")
     wb = load_workbook(io.BytesIO(data))
     assert wb.sheetnames[0] == "Instructions" and wb.sheetnames[-1] == OPEN_MARKET
     sheet = wb["Elettro Srl"]

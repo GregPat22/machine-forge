@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from app.llm.mock import _initial_design
+from app.llm.mock import demo_design
 from app.models import MachineDesign, Station, Transport
 from app.services.layout import DEFAULT_ENVELOPE, compute_layout
-from tests.conftest import BLISTER_PROBLEM
 
 
 def _flow_boxes(layout):
@@ -11,7 +10,7 @@ def _flow_boxes(layout):
 
 
 def test_inline_layout_places_stations_in_order_without_overlap() -> None:
-    layout = compute_layout(_initial_design(BLISTER_PROBLEM))
+    layout = compute_layout(demo_design("blister"))
     flow = _flow_boxes(layout)
     assert len(flow) == 5  # 4 process stations + outfeed
     for a, b in zip(flow, flow[1:]):
@@ -30,7 +29,7 @@ def test_inline_layout_places_stations_in_order_without_overlap() -> None:
 
 
 def test_u_shape_uses_two_rows_and_returns() -> None:
-    design = _initial_design(BLISTER_PROBLEM)
+    design = demo_design("blister")
     inline = compute_layout(design)
     design.layout_style = "u_shape"
     layout = compute_layout(design)

@@ -79,7 +79,7 @@ The system prompt (`llm/prompts.py`) is byte-stable so Claude can cache it.
 |---|---|---|
 | `anthropic` | Default. Claude API | Streaming, adaptive thinking, structured outputs (JSON schema), prompt caching, server-side refusal fallback |
 | `openai_compatible` | Private deployments: Ollama, vLLM, LM Studio, Azure OpenAI | JSON-schema response format, one retry with the validation error |
-| `mock` | Tests, demos without a key | Keyword-based demo engine, understands "add vision inspection" |
+| `mock` | Tests, demos without a key | Fixed demo machine picked by `MF_MOCK_SCENARIO` (default blister); never reads your text, each request applies its next scripted edit |
 
 See [ai-providers.md](ai-providers.md) for private / on-premise options.
 
