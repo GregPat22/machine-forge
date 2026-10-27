@@ -104,3 +104,12 @@ distributor APIs have daily quotas. See [suppliers.md](suppliers.md).
 
 SQLite at `backend/data/machine-forge.db` (git-ignored). It is fine for one user or a small team.
 For a shared server, move to Postgres. The `Storage` class is the only code that touches SQL.
+
+## Project JSON export and import
+
+`GET /api/projects/{id}/export` returns the project, every revision (designs at the current
+schema version) and the chat messages as one JSON file (`format: "machine-forge-project"`,
+`format_version: 1`). `POST /api/projects/import` takes that file as the request body, checks its
+size (`MF_MAX_IMPORT_MB`, default 20) and versions, migrates designs written with an older
+`schema_version`, and always creates a new project. A bad file changes nothing. Code:
+`services/project_json.py`. Own format only.

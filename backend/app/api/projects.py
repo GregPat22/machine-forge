@@ -7,6 +7,7 @@ import threading
 from typing import Callable
 
 from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, Field
 
@@ -19,6 +20,7 @@ from app.services.diff import DesignDiff, diff_designs
 from app.services.documents import TechnicalDocument, build_document, to_docx, to_markdown
 from app.services.drawing import to_dxf, to_svg
 from app.services.layout import Layout, compute_layout
+from app.services.project_json import ProjectImportError, export_project, import_project
 from app.services.plc import PlcProject, to_plcopen_xml
 from app.services.plc import generate as generate_plc
 from app.services.plc import to_zip as plc_to_zip
@@ -89,6 +91,28 @@ def create_project(body: NewProject, request: Request) -> dict:
     return _project_out(_designer(request).create(body.problem.strip()))
 
 
+@router.post("/projects/import", status_code=201)
+async def import_project_file(request: Request) -> dict:
+    """Create a new project from a project JSON file (the request body). Never overwrites."""
+    state = request.app.state.mf
+    limit = state.settings.max_import_bytes
+    declared = request.headers.get("content-length")
+    if declared and declared.isdigit() and int(declared) > limit:
+        raise HTTPException(status_code=413, detail=f"File is {declared} bytes; the import limit is {limit} bytes.")
+    body = bytearray()
+    async for chunk in request.stream():
+        body += chunk
+        if len(body) > limit:
+            raise HTTPException(status_code=413, detail=f"File is larger than the import limit of {limit} bytes.")
+    try:
+        # Parsing and validating up to the size limit is CPU work: keep it off the event loop.
+        project_id = await run_in_threadpool(import_project, state.storage, bytes(body), max_bytes=limit)
+    except ProjectImportError as exc:
+        raise HTTPException(status_code=exc.status, detail=str(exc)) from exc
+    project = await run_in_threadpool(state.storage.get_project, project_id)
+    return _project_out(project)
+
+
 def _event_stream(run: Callable[[ProgressFn], Project]) -> StreamingResponse:
     """Run a design call in a thread and stream its progress as server-sent events.
 
@@ -150,6 +174,19 @@ def get_project(project_id: str, request: Request) -> dict:
     if project is None:
         raise ProjectNotFound(f"Project {project_id} not found")
     return _project_out(project)
+
+
+@router.get("/projects/{project_id}/export")
+def export(project_id: str, request: Request) -> Response:
+    storage = request.app.state.mf.storage
+    project = storage.get_project(project_id)
+    if project is None:
+        raise ProjectNotFound(f"Project {project_id} not found")
+    payload = json.dumps(export_project(project, storage.list_revisions(project_id)), indent=2)
+    return Response(
+        payload, media_type="application/json",
+        headers={"Content-Disposition": f'attachment; filename="machine-forge-{project_id}.json"'},
+    )
 
 
 @router.delete("/projects/{project_id}", status_code=204)

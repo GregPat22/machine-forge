@@ -162,6 +162,30 @@ class Storage:
             [(project_id, "user", prompt, None, now), (project_id, "assistant", reply, number, now)],
         )
 
+    def import_project(self, meta: dict, revisions: list[Revision], messages: list[ChatMessage]) -> str:
+        """Store an imported project under a new id, keeping revision numbers and timestamps."""
+        project_id = uuid.uuid4().hex[:12]
+        with self._lock, self._conn:
+            self._conn.execute(
+                "INSERT INTO projects (id, name, problem, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+                (project_id, meta["name"], meta["problem"], meta["created_at"].isoformat(),
+                 meta["updated_at"].isoformat()),
+            )
+            self._conn.executemany(
+                """INSERT INTO revisions (project_id, number, prompt, reply, design, schema_version, created_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                [
+                    (project_id, r.number, r.prompt, r.reply, r.design.model_dump_json(),
+                     DESIGN_SCHEMA_VERSION, r.created_at.isoformat())
+                    for r in revisions
+                ],
+            )
+            self._conn.executemany(
+                "INSERT INTO messages (project_id, role, content, revision, created_at) VALUES (?, ?, ?, ?, ?)",
+                [(project_id, m.role, m.content, m.revision, m.created_at.isoformat()) for m in messages],
+            )
+        return project_id
+
     def add_message(self, project_id: str, role: str, content: str) -> None:
         with self._lock, self._conn:
             self._conn.execute(

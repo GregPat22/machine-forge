@@ -45,6 +45,8 @@ class Settings:
     openai_model: str = "llama3.1"
     # Answers the AI may give for one request when its patches are rejected (the first one included).
     max_repair_attempts: int = 3
+    # Largest project JSON file the import endpoint accepts.
+    max_import_bytes: int = 20 * 1024 * 1024
 
     db_path: Path = BACKEND_DIR / "data" / "machine-forge.db"
 
@@ -92,6 +94,7 @@ def load_settings() -> Settings:
         openai_api_key=env("MF_OPENAI_API_KEY", ""),
         openai_model=env("MF_OPENAI_MODEL", "llama3.1"),
         max_repair_attempts=_attempts(env("MF_MAX_REPAIR_ATTEMPTS", "3")),
+        max_import_bytes=int(float(env("MF_MAX_IMPORT_MB", "20")) * 1024 * 1024),
         db_path=Path(env("MF_DB_PATH", str(BACKEND_DIR / "data" / "machine-forge.db"))),
         mouser_api_key=env("MOUSER_API_KEY", ""),
         nexar_client_id=env("NEXAR_CLIENT_ID", ""),
