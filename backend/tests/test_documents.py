@@ -52,7 +52,7 @@ def test_safety_functions_follow_components() -> None:
     assert all(r[3].startswith("to be determined") for r in safety_function_rows(_small_design()))
 
 
-def test_cycle_check_relates_cycle_time_to_throughput() -> None:
+def test_cycle_check_shows_the_stated_rate_without_parsing_it() -> None:
     lines = cycle_check(_small_design())
     assert "60.0 cycles/min" in lines[0]
     assert lines[1] == "Required throughput as stated: 120 parts/min (free text, not compared with the cycle time)."

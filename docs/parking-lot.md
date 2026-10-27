@@ -8,7 +8,8 @@ a spec names it.
 Found 2026-10-23 by scanning for `.lower()`, regex, `startswith` and `in name` checks.
 
 `io_points.py` (I/O by keyword in component names) and the regex over the required rate in
-`documents.py` were fixed in Phase 1 step 3; `tests/test_repo_rules.py` now guards rule 1.
+`documents.py` were fixed in Phase 1 step 3. `tests/test_repo_rules.py` now catches direct
+comparisons and regex tests on names, not indirect ones (see `docs/engineering-rules.md`, rule 1).
 
 ### Other
 
@@ -23,6 +24,12 @@ Found 2026-10-23 by scanning for `.lower()`, regex, `startswith` and `in name` c
 - PLC view: a design migrated from v1 has no `signals`, so it has no I/O points and the PLC
   stations say "no actuated components detected" without saying why (ADR 0015). Only the I/O list
   in the documents names the components without signals. `plc.py` is frozen.
+- `backend/app/services/io_points.py`: a `safety` component gets two-channel safety inputs only
+  when its role is `sensor`. With no role, a door switch's inputs are plain DI, and the PLC sizing
+  counts them as standard inputs. Nothing requires a role on safety parts.
+- `backend/app/services/project_json.py`: an imported project is checked by Pydantic only, not by
+  the patch validator, so a negative signal count (for example `di: -1`) is accepted and the I/O
+  list silently ignores it. Found by the step 3 audit.
 - `backend/app/services/sourcing.py:30-41`: `_similar` matches a spare part to a price-list
   entry by word overlap of names and descriptions. Fuzzy suggestion only. Replace with
   `part_number`, `manufacturer` and structured spec keys.
