@@ -25,8 +25,11 @@ v0.3) and section 7.
    *Check:* prompt diffs are reviewed against this list; patch operations that set computed
    fields are rejected by the validator (Phase 1).
 
-4. **No decorative geometry.** Unknown geometry is a labelled envelope with its dimensions. No
-   fillers, no random hardware, no product shapes guessed from text, no hardcoded speeds.
+4. **No decorative geometry.** Unknown geometry is a labelled envelope with its dimensions. A
+   library module draws a shape of simple solids, each sized from a module parameter and
+   recording which one; a feature with no parameter is not drawn. A solid's material comes from
+   its material kind, never from a name (ADR 0016). No fillers, no random hardware, no product
+   shapes guessed from text, no hardcoded speeds.
    *Check:* `tests/test_repo_rules.py` fails on imports of the deleted render; reviewers reject
    any geometry that does not come from the scene JSON (Phase 4).
 

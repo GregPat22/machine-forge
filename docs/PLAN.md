@@ -21,10 +21,12 @@ concept and modification stage. Design new machines, modify existing ones, run w
 
 ### What it is not
 
-- Not a CAD system. It reads STEP, it does not produce engineering geometry.
+- Not a CAD system. It reads STEP and, on the roadmap, writes its concept layout as STEP; it
+  does not produce engineering geometry.
 - Not a physics engine. No collisions, no dynamics, no FEM.
 - Not a PLC IDE and never a source of safety logic.
-- Not a renderer. Visual output exists to show the model and the simulation, never to impress.
+- Not a renderer. The view shows only what the model knows, but shows it well: materials by part
+  type, neutral lighting, soft shadows (ADR 0016). No photo-realism, nothing decorative.
 
 ### Market position (honest)
 
@@ -107,7 +109,7 @@ frontend (React + R3F)                 backend (FastAPI)
                                             scene    : design + layout + trace -> scene JSON + animation tracks
                                             bom/cost, documents, io_points, plc, drawing (adapted)
                                           Library
-                                            modules: parameters, timing formulas, envelope/glTF, BOM template
+                                            modules: parameters, timing formulas, shape/envelope/glTF, BOM template
                                           Import / export
                                             STEP -> glTF, Excel BOM, AutomationML, PLCopen XML, project JSON
                                           Storage: SQLite (workspace_id everywhere)
@@ -284,7 +286,7 @@ conveyor speed in the editor changes the rate; the diff view shows the change.
 **Agent brief.** SimPy only; no custom scheduler. Trace format documented in `docs/trace.md`
 before code. Statistical assertions use fixed seeds and tolerances written in the test.
 
-### Phase 4: Layout v2, scene and playback (3 weeks)
+### Phase 4: Layout v2, scene and playback (4 weeks)
 
 **Goal.** An honest 3D view: real envelopes, editable placement, dimensions measured from
 geometry, and the simulation playing on it.
@@ -294,50 +296,63 @@ geometry, and the simulation playing on it.
   user-editable** (drag in 3D, numeric in the editor); checks: overlaps, aisle and operator
   clearances (configurable), footprint from actual placed geometry.
 - `engines/scene.py`: design + layout + results → **scene JSON**: per station a glTF asset
-  reference (from the library, Phase 5) or a labelled parametric envelope (box/cylinder with
-  the station name and dimensions), transports as paths, mechanisms as animatable nodes with
-  axis definitions. Animation tracks: pieces from the DES trace, axes from Phase 2 profiles.
+  reference (from the library, Phase 5), a module's **parametric shape** (simple solids, each
+  sized from a module parameter and recording which one, ADR 0016) or a labelled parametric
+  envelope (box/cylinder with the station name and dimensions), transports as paths,
+  mechanisms as animatable nodes with axis definitions. Animation tracks: pieces from the DES
+  trace, axes from Phase 2 profiles.
+- **Shape kit** (ADR 0016), the generic parts every parametric shape is built from: profile
+  frame, guard panel, roller and belt conveyor, sheet-metal cabinet, feet, pallet, product box,
+  simple robot arm sized from its reach. Each solid carries a **material kind** (aluminium
+  profile, clear guard, painted steel, product, moving part) set by the module definition.
 - Frontend: rewrite the viewer on **react-three-fiber + drei** (`GLTF` loader,
   `TransformControls` for dragging, orthographic/perspective toggle, measured dimension
   overlays). **Timeline** with play/pause/scrub at simulated time; pieces move exactly when the
   trace says. Station selection shows parameters, components, cycle time, utilisation.
+  Materials mapped from material kinds, neutral environment lighting, soft shadows.
 - Dimension overlays read bounding boxes from the scene, never from typed text.
 - Keep SVG/DXF top view, generated from the same layout.
 
-**Out of scope.** Materials, lighting beyond a neutral studio, anything decorative. No product
-shapes beyond the product's own box/cylinder dimensions.
+**Out of scope.** Photo-realism (textures, reflections, post-processing), anything decorative,
+materials chosen any other way than by material kind. No product shapes beyond the product's
+own box/cylinder dimensions.
 
 **Tests.**
 - Layout invariants: no two placed envelopes overlap after auto-layout; clearance violations are
   reported for a deliberately tight fixture; footprint equals the hull of placed boxes.
 - Scene snapshots: golden scene JSON per mock machine, diffed in CI (fail on unintended change).
+- Parametric shapes: every solid in the scene names the parameter it is sized from; changing
+  that parameter changes the solid's dimension and nothing else.
+- Shape kit: a fixture scene with every kit part at the ends of its parameter ranges builds
+  without errors; every solid has a material kind from the fixed list.
 - Trace playback: at time t the piece's position in the scene equals the interpolation between
   the trace's `from`/`to` nodes (unit test on the interpolation function).
 - Playwright: load mock project, drag a station, see footprint update; scrub the timeline and
   see the time readout change; select a station and read its cycle time.
 - A test that fails if any file under `frontend/src` contains a regex over `design.name`,
-  `station.name` or `component.name`.
+  `station.name` or `component.name`, or picks a material by anything but material kind.
 
 **Done when.** Greg opens the mock blister machine, drags a station, the footprint and the DXF
 update, presses play and watches pieces move at the simulated rate.
 
 **Agent brief.** The viewer renders scene JSON and nothing else. If geometry is unknown, draw a
-labelled envelope. No fillers, no regex, no random seeds in visuals.
+labelled envelope. A parametric shape draws only what its parameters size. No fillers, no
+regex, no random seeds in visuals.
 
-### Phase 5: Module library and imports (3 to 4 weeks)
+### Phase 5: Module library and imports (5 to 7 weeks)
 
 **Goal.** The AI composes from real modules; companies bring their own.
 
 **Scope.**
 - Library schema (`models/library.py`): module id, kind, parameters with ranges and units,
-  timing formula (reference to a Phase 2 pattern with parameter mapping), envelope formula or
-  glTF asset, mount frames (in/out product points), BOM template with roles and signals,
-  source and license fields.
-- Public **seed library** (12 to 15 modules, our own parametric envelopes): infeed timing screw
-  + star wheel, belt conveyor, indexing conveyor, rotary indexing table, two-axis pick-and-place,
-  three-axis gantry, thermoforming station, sealing station, punching station, labeller,
-  checkweigher, vision inspection, reject pusher, carton magazine + erector, hot-melt flap
-  closer.
+  timing formula (reference to a Phase 2 pattern with parameter mapping), parametric shape,
+  envelope formula or glTF asset, mount frames (in/out product points), BOM template with roles
+  and signals, source and license fields.
+- Public **seed library** (12 to 15 modules, each with our own parametric shape, ADR 0016):
+  infeed timing screw + star wheel, belt conveyor, indexing conveyor, rotary indexing table,
+  two-axis pick-and-place, three-axis gantry, thermoforming station, sealing station, punching
+  station, labeller, checkweigher, vision inspection, reject pusher, carton magazine + erector,
+  hot-melt flap closer.
 - Company library: CRUD in the UI, per workspace, stored outside the repo.
 - **STEP → glTF** import (`machine-forge[cad]`, OCP/cadquery): mesh, bounding box, optional
   mount frame picking in the viewer. Direct glTF upload as fallback.
@@ -352,7 +367,8 @@ inside imported CAD.
 
 **Tests.**
 - Library validation: every seed module instantiates across its full parameter range without
-  errors; timing and envelope formulas return finite values.
+  errors; timing and envelope formulas return finite values; its shape builds across the same
+  range, and every solid stays inside the module's envelope.
 - STEP fixtures: permissively licensed sample STEP files (OCCT/FreeCAD test data) convert, and
   the bounding box matches known dimensions within 0.1 mm.
 - BOM import fixtures in English and Italian; a messy sheet with merged headers maps with the
@@ -362,7 +378,8 @@ inside imported CAD.
 - Playwright: import a STEP, see it placed with correct dimensions; import a BOM, see components.
 
 **Done when.** A company can upload a STEP of their station, give it parameters and a BOM, and
-the AI uses it in a new machine with correct dimensions and timing.
+the AI uses it in a new machine with correct dimensions and timing. The mock blister machine,
+built from seed modules, shows every station as its module's shape, not as a box.
 
 **Agent brief.** Library assets are data. No module logic in code paths except formula
 evaluation. Imported files are untrusted: parse in isolation, size limits, no code execution.
@@ -418,6 +435,8 @@ Docker e2e in CI (compose up, create mock project, run throughput).
   interference checks with OCCT.
 - PLC generation from the simulated step sequences (same model drives sim and code).
 - Stochastic experiments and optimisation (buffer sizing, lane count).
+- STEP export of the concept layout (parametric shapes, envelopes, placed imported parts) as one
+  assembly a designer opens in any CAD. Concept geometry, labelled as such (ADR 0016).
 - Vendor CAD integrations where terms allow.
 - Postgres, SSO, audit trail.
 
@@ -440,8 +459,9 @@ These go into `docs/engineering-rules.md` and `CLAUDE.md`. Reviewers reject PRs 
    output of a named engine function. The UI can show the source.
 3. **The AI never writes** coordinates, computable durations, rates, dimensions derived from
    geometry, or compliance statements. It proposes structure, parameters, components, reasons.
-4. **No decorative geometry.** Unknown geometry is a labelled envelope. No fillers, no random
-   hardware, no product shapes from regex.
+4. **No decorative geometry.** Unknown geometry is a labelled envelope. A library module draws
+   only solids sized from its parameters, with materials from their material kind. No fillers,
+   no random hardware, no product shapes from regex.
 5. **Engines are deterministic and pure.** Seeded, no I/O, formulas cite their source, unhandled
    cases raise instead of approximating.
 6. **Tests need no network or keys.** Recorded payloads and mock providers only. Live evals are
