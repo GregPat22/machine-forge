@@ -139,9 +139,10 @@ frontend (React + R3F)                 backend (FastAPI)
 
 Each phase lists: goal, scope, out of scope, tests, done criteria, agent brief. Phases are
 sequential. A phase is done when its tests pass in CI and the done criteria are checked by Greg
-in the running app. Nothing from a later phase starts early.
+in the running app. Nothing from a later phase starts early. Phases carry no time estimates
+and nobody tracks a schedule (ADR 0018): a phase takes as long as its tests and done criteria take.
 
-### Phase 0: Cleanup and guardrails (about 1 week)
+### Phase 0: Cleanup and guardrails
 
 **Goal.** Remove what misleads, write down the rules, make the repo ready for agents.
 
@@ -167,7 +168,7 @@ CI green, docs updated.
 
 **Agent brief.** Pure removal and documentation. No refactors "while we are here".
 
-### Phase 1: Model v2 and patch-based AI edits (2 to 3 weeks)
+### Phase 1: Model v2 and patch-based AI edits
 
 **Goal.** A schema that can carry simulation, and an AI loop that edits it safely.
 
@@ -209,7 +210,7 @@ silent bad design.
 **Agent brief.** Schema first, tests second, prompts third. Keep `MockProvider` honest (no
 hidden shortcuts that only work for the demo prompts).
 
-### Phase 2: Timing engine, simulation B-lite (2 weeks)
+### Phase 2: Timing engine, simulation B-lite
 
 **Goal.** Cycle time per station computed from mechanisms and steps, shown as a timing diagram.
 
@@ -249,7 +250,7 @@ limiting step, and changing a stroke in the editor changes the time without any 
 source in a comment (textbook or standard). No "approximately" code paths: if a case is not
 handled, raise.
 
-### Phase 3: Throughput engine, simulation A (2 to 3 weeks)
+### Phase 3: Throughput engine, simulation A
 
 **Goal.** Pieces per minute, bottleneck, blocking/starving, WIP and time-in-system from the
 process graph, with an event trace the 3D view can play.
@@ -286,7 +287,7 @@ conveyor speed in the editor changes the rate; the diff view shows the change.
 **Agent brief.** SimPy only; no custom scheduler. Trace format documented in `docs/trace.md`
 before code. Statistical assertions use fixed seeds and tolerances written in the test.
 
-### Phase 4: Layout v2, scene and playback (4 weeks)
+### Phase 4: Layout v2, scene and playback
 
 **Goal.** An honest 3D view: real envelopes, editable placement, dimensions measured from
 geometry, and the simulation playing on it.
@@ -339,7 +340,7 @@ update, presses play and watches pieces move at the simulated rate.
 labelled envelope. A parametric shape draws only what its parameters size. No fillers, no
 regex, no random seeds in visuals.
 
-### Phase 5: Module library and imports (6 to 9 weeks)
+### Phase 5: Module library and imports
 
 **Goal.** The AI composes from real modules; companies bring their own.
 
@@ -394,7 +395,7 @@ sees cycle time and throughput computed.
 **Agent brief.** Library assets are data. No module logic in code paths except formula
 evaluation. Imported files are untrusted: parse in isolation, size limits, no code execution.
 
-### Phase 6: AI tools, what-if loop and evaluation (2 weeks)
+### Phase 6: AI tools, what-if loop and evaluation
 
 **Goal.** Propose → compute → explain, across providers, measured.
 
@@ -424,7 +425,7 @@ did not compute, with any provider configured.
 **Agent brief.** The AI explains; the engines compute. If a provider cannot do tools, degrade to
 the plan/act loop, never to "let the model estimate".
 
-### Phase 7: Interchange, deployment, multi-user basics (2 to 3 weeks)
+### Phase 7: Interchange, deployment, multi-user basics
 
 **Scope.**
 - **AutomationML** export (CAEX topology: stations, transports, placements; PLCopen XML attached)
