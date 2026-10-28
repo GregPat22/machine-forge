@@ -50,6 +50,13 @@ titles in `rfq.py`, and `plc.py:352` (filters on generated station codes, not la
 ## Rule checks that are not enforced
 
 - Rule 7: `tests/test_migration.py` builds the v0.3 database in code. Add a committed old-database fixture and test for rule 7.
+- PLCopen XML schema: `backend/tests/test_plc.py::test_plcopen_xml_validates_against_tc6_schema`
+  is skipped unless `MF_PLCOPEN_XSD` points to a local `tc6_xml_v201.xsd`, so CI never checks the
+  generated `plcopen.xml` against the schema. The test uses `lxml`, installed today only because
+  `python-docx` depends on it; list it in the dev dependencies when the test is enabled. To run
+  it in CI: check whether the terms of PLCopen's TC6 XSD allow committing it as a fixture; if
+  not, download it in a CI step (never inside the test, rule 6) with a pinned checksum (a CI
+  change, Greg approves it). Found 2026-10-28 (Greg asked for this entry).
 
 ## Docs to update
 
