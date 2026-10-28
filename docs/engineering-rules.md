@@ -56,8 +56,10 @@ v0.3) and section 7.
    *Check:* the PR diff touches none of them unless the phase spec lists them.
 
 9. **One phase at a time, tests before code.** Each phase has `docs/specs/phase-N.md` with
-   the tests to add; agents implement to the tests.
-   *Check:* the spec exists and is linked from the PR before any code is reviewed.
+   the tests to add; agents implement to the tests. A small fix Greg already agreed to in
+   `docs/parking-lot.md` needs no spec (`docs/workflow.md`, "Small agreed fixes").
+   *Check:* the spec, or the parking-lot entry, exists and is linked from the PR before any code
+   is reviewed.
 
 10. **Small PRs, one concern, docs and ADR updated in the same PR.**
     *Check:* a PR that changes a decision without an ADR is sent back.
