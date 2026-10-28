@@ -98,6 +98,11 @@ def part_design(**overrides):
                          stations=[Station(id="st-a", name="Station", function="test", components=[component])])
 
 
+def test_exact_offer_matching_respects_manufacturer():
+    part = build_catalog(part_design())[0]
+    offers = internal_offers(part, [PriceListEntry(supplier="Wrong vendor", manufacturer="Maker B",
+                                                  part_number="ABC-123", unit_price=1)])
+    assert not any(o.match == "exact" for o in offers), [o.model_dump() for o in offers]
 
 
 def test_malformed_excel_upload_is_a_client_error():
@@ -223,6 +228,12 @@ def test_csv_exports_protect_formula_prefixes_and_keep_numeric_cells(label):
     assert row[6] == "1"
 
 
+@pytest.mark.parametrize("manufacturer", [None, " maker a ", "MAKER A"])
+def test_exact_matching_keeps_missing_or_equivalent_manufacturers(manufacturer):
+    part = build_catalog(part_design())[0]
+    offers = internal_offers(part, [PriceListEntry(supplier="Vendor", manufacturer=manufacturer,
+                                                  part_number="ABC-123", unit_price=5)])
+    assert len(offers) == 1 and offers[0].match == "exact"
 
 
 

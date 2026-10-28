@@ -42,7 +42,9 @@ def _similar(part: SparePart, entry: PriceListEntry) -> bool:
 
 def internal_offers(part: SparePart, price_list: list[PriceListEntry]) -> list[Offer]:
     pn = normalize_pn(part.part_number)
-    exact = [e for e in price_list if pn and normalize_pn(e.part_number) == pn]
+    exact = [e for e in price_list if pn and normalize_pn(e.part_number) == pn
+             and (not part.manufacturer or not e.manufacturer
+                  or part.manufacturer.strip().casefold() == e.manufacturer.strip().casefold())]
     entries, match = (exact, "exact") if exact else ([e for e in price_list if _similar(part, e)], "similar")
     return [
         Offer(
