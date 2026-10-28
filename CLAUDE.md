@@ -25,8 +25,9 @@
 - No confidential data (machine specs, BOMs, CAD, prices from employers or customers) in the repo,
   tests, issues or commits. Public sources only, cited.
 - When Greg says we've made a decision, write a new short note in `docs/adr/` with the next
-  four-digit number (0024 is next): what we decided, the options, and why. Two short paragraphs.
-  Never edit old notes. If a decision replaces an older one, the new note says so.
+  four-digit number (0026 is next; 0025 is reserved for Phase 1 step 7b): what we decided, the
+  options, and why. Two short paragraphs. Never edit old notes. If a decision replaces an older
+  one, the new note says so.
 
 ## Run and test
 

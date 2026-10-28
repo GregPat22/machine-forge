@@ -3,6 +3,9 @@
 The AI answers with patches (`services/patch.py`). Rejected patches go back to it as the next turn,
 up to `max_attempts` answers in total; after the last one the design is unchanged and the user gets
 a readable error (the repair loop, Phase 1).
+
+The model editor sends the same patches (`edit`): same validator, no AI call, and rejected
+patches go back to the engineer instead.
 """
 
 from __future__ import annotations
@@ -14,7 +17,7 @@ from app.llm.base import ProgressFn
 from app.llm.prompts import SYSTEM_PROMPT, first_turn, refine_turn, repair_turn
 from app.models import MachineDesign, Project
 from app.services.patch import PatchError, PatchOp, PatchUpdate, apply_patches, empty_design
-from app.storage import Storage
+from app.storage import RevisionConflict, Storage
 
 # Earlier chat turns sent as context with each request (the current design is always sent in full).
 HISTORY_TURNS = 10
@@ -31,6 +34,16 @@ class ProjectNotFound(LookupError):
 
 class PatchRejected(LLMError):
     """The AI's patches were still invalid after the last attempt. The message is safe to show."""
+
+
+class EditRejected(ValueError):
+    """Patches from the model editor were rejected; nothing was saved. The message is safe to show."""
+
+    def __init__(self, errors: list[PatchError]):
+        problems = "1 problem" if len(errors) == 1 else f"{len(errors)} problems"
+        super().__init__(f"The edit was not saved: {problems} found. Fix {'it' if len(errors) == 1 else 'them'} "
+                         "and save again.")
+        self.errors = errors
 
 
 class Designer:
@@ -72,6 +85,31 @@ class Designer:
         self.storage.add_revision(
             project_id, f"Restore revision {number}", f"Restored the design of revision {number}.", revision.design,
             expected_revision=project.latest_revision,
+        )
+        return self._get(project_id)
+
+    def edit(self, project_id: str, patches: list[PatchOp], expected_revision: int) -> Project:
+        """Apply patches from the model editor to the latest revision; all of them, or none.
+
+        `expected_revision` is the revision the engineer edited. If the project has moved on (a chat
+        turn, a restore, another editor), nothing is saved: the edits were made on a design that is
+        no longer the latest.
+        """
+        if not patches:
+            raise ValueError("The model editor sent no edits.")
+        project = self._get(project_id)
+        if project.latest_revision != expected_revision:
+            raise RevisionConflict(
+                f"The project changed since you opened it (now at revision {project.latest_revision}). "
+                "Your edit was not saved. Reload the project and try again."
+            )
+        result = apply_patches(project.design, patches)
+        if result.errors or result.design is None:
+            raise EditRejected(result.errors)
+        count = f"{len(patches)} edit{'' if len(patches) == 1 else 's'}"
+        self.storage.add_revision(
+            project_id, "Model editor: " + "; ".join(_label(op) for op in patches),
+            f"Saved {count} from the model editor.", result.design, expected_revision=expected_revision,
         )
         return self._get(project_id)
 
@@ -120,6 +158,13 @@ def _unnamed(design: MachineDesign) -> list[PatchError]:
     return [PatchError(index=None, code="missing_operand",
                        message="the first answer must set name, machine_type and summary with set_param "
                                f"(missing: {', '.join(missing)})")]
+
+
+def _label(op: PatchOp) -> str:
+    """One editor patch for the revision list and the chat, e.g. 'set_param st-forming stroke'. Display only."""
+    target = (op.component_id or op.step_id or op.transport_id
+              or next((x.id for x in (op.station, op.component, op.mechanism, op.step, op.transport) if x), None))
+    return " ".join(part for part in (op.op, op.station_id, target, op.name) if part)
 
 
 def _describe(errors: list[PatchError], patches: list[PatchOp]) -> str:

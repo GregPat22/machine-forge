@@ -44,6 +44,13 @@ Search lowercasing (`Suppliers.tsx`), file extension checks, price and header pa
 `price_list.py`, `spare_parts.py` and `suppliers/base.py`, env parsing in `config.py`, sheet
 titles in `rfq.py`, and `plc.py:352` (filters on generated station codes, not labels).
 
+## Patch operations
+
+- No operation removes a mechanism or a station parameter, or edits or removes an assumption or
+  an open question, so neither the AI nor the model editor can (ADR 0024, found 2026-10-28 while
+  planning Phase 1 step 7). Needs a spec that reopens `services/patch.py`, with its property
+  tests.
+
 ## Rule checks that are not enforced
 
 - Rule 7: `tests/test_migration.py` builds the v0.3 database in code. Add a committed old-database fixture and test for rule 7.

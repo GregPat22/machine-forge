@@ -15,11 +15,12 @@ from app.api.suppliers import TEMPLATE_NAME
 from app.llm import LLMError, LLMNotConfigured
 from app.llm.base import Progress, ProgressFn
 from app.models import MachineDesign, Project, ProjectSummary, Revision, SourcingReport, SparePart
-from app.services.designer import Designer, ProjectNotFound
+from app.services.designer import Designer, EditRejected, ProjectNotFound
 from app.services.diff import DesignDiff, diff_designs
 from app.services.documents import TechnicalDocument, build_document, to_docx, to_markdown
 from app.services.drawing import to_dxf, to_svg
 from app.services.layout import Layout, compute_layout
+from app.services.patch import PatchOp
 from app.services.project_json import ProjectImportError, export_project, import_project
 from app.services.plc import PlcProject, to_plcopen_xml
 from app.services.plc import generate as generate_plc
@@ -40,6 +41,11 @@ class NewProject(BaseModel):
 
 class PromptIn(BaseModel):
     message: str = Field(min_length=1)
+
+
+class PatchesIn(BaseModel):
+    expected_revision: int = Field(description="The revision the edits were made on")
+    patches: list[PatchOp] = Field(min_length=1)
 
 
 def _designer(request: Request) -> Designer:
@@ -202,6 +208,22 @@ def delete_project(project_id: str, request: Request) -> Response:
 @router.post("/projects/{project_id}/prompt")
 def prompt(project_id: str, body: PromptIn, request: Request) -> dict:
     return _project_out(_designer(request).refine(project_id, body.message.strip()))
+
+
+@router.post("/projects/{project_id}/patches")
+def patches(project_id: str, body: PatchesIn, request: Request) -> dict:
+    """Model editor: apply patches through the same validator as the AI, with no AI call.
+
+    400 with `{"detail": {"message", "errors": [PatchError]}}` when any patch is rejected (nothing is
+    saved); 409 when `expected_revision` is no longer the latest.
+    """
+    try:
+        project = Designer(request.app.state.mf.storage).edit(project_id, body.patches, body.expected_revision)
+    except EditRejected as exc:
+        raise HTTPException(
+            status_code=400, detail={"message": str(exc), "errors": [e.model_dump() for e in exc.errors]}
+        ) from exc
+    return _project_out(project)
 
 
 @router.get("/projects/{project_id}/revisions")
