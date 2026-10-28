@@ -87,8 +87,14 @@ def _rows_from_csv(data: bytes) -> list[list[object]]:
 def _sheets_from_xlsx(data: bytes) -> list[tuple[str, list[list[object]]]]:
     from openpyxl import load_workbook
 
-    workbook = load_workbook(io.BytesIO(data), read_only=True, data_only=True)
-    return [(ws.title, [list(row) for row in ws.iter_rows(values_only=True)]) for ws in workbook.worksheets]
+    try:
+        workbook = load_workbook(io.BytesIO(data), read_only=True, data_only=True)
+        try:
+            return [(ws.title, [list(row) for row in ws.iter_rows(values_only=True)]) for ws in workbook.worksheets]
+        finally:
+            workbook.close()
+    except Exception as exc:  # openpyxl, XML and ZIP parsers use unrelated errors for malformed files
+        raise PriceListError("This is not a valid Excel workbook. Upload a .xlsx file or export it as CSV.") from exc
 
 
 def _parse_rows(rows: list[list[object]], filename: str, default_currency: str) -> list[PriceListEntry]:

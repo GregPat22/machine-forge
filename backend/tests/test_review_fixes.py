@@ -100,6 +100,9 @@ def part_design(**overrides):
 
 
 
+def test_malformed_excel_upload_is_a_client_error():
+    response = client().post("/api/price-list", files={"file": ("broken.xlsx", b"not an excel archive")})
+    assert response.status_code == 400, (response.status_code, response.text)
 
 
 def test_currency_in_price_list_is_validated():
@@ -233,3 +236,40 @@ def test_invalid_currency_in_one_workbook_sheet_rejects_the_entire_upload():
     response = c.post("/api/price-list", files={"file": ("prices.xlsx", data.getvalue())})
     assert response.status_code == 400 and "Invalid currency" in response.json()["detail"], response.text
     assert [row["supplier"] for row in c.get("/api/price-list").json()] == ["Existing"]
+
+
+
+
+@pytest.mark.parametrize("malformed", ["font_index", "shared_string"])
+def test_malformed_excel_metadata_returns_a_client_error(malformed):
+    workbook = Workbook()
+    workbook.active.append(["Supplier", "Part number", "Unit price"])
+    workbook.active.append(["Vendor", "ABC", 5])
+    original = io.BytesIO()
+    workbook.save(original)
+    broken = io.BytesIO()
+    with zipfile.ZipFile(original) as source, zipfile.ZipFile(broken, "w") as target:
+        for name in source.namelist():
+            data = source.read(name)
+            if malformed == "font_index" and name == "xl/styles.xml":
+                data = data.replace(b'fontId="0"', b'fontId="bad"', 1)
+            if malformed == "shared_string" and name == "xl/worksheets/sheet1.xml":
+                data = data.replace(b'<c r="A1" t="inlineStr"><is><t>Supplier</t></is></c>',
+                                    b'<c r="A1" t="s"><v>999</v></c>')
+            target.writestr(name, data)
+    response = client().post("/api/price-list", files={"file": ("broken.xlsx", broken.getvalue())})
+    assert response.status_code == 400, (response.status_code, response.text)
+
+
+def test_corrupt_excel_compressed_data_returns_a_client_error():
+    workbook = Workbook()
+    original = io.BytesIO()
+    workbook.save(original)
+    broken = bytearray(original.getvalue())
+    with zipfile.ZipFile(original) as archive:
+        header = archive.getinfo("[Content_Types].xml").header_offset
+    filename_length = int.from_bytes(broken[header + 26:header + 28], "little")
+    extra_length = int.from_bytes(broken[header + 28:header + 30], "little")
+    broken[header + 30 + filename_length + extra_length] = 0xff
+    response = client().post("/api/price-list", files={"file": ("broken.xlsx", bytes(broken))})
+    assert response.status_code == 400, (response.status_code, response.text)
