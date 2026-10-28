@@ -102,6 +102,10 @@ def part_design(**overrides):
 
 
 
+def test_currency_in_price_list_is_validated():
+    response = client().post("/api/price-list", files={
+        "file": ("prices.csv", b"Supplier,Part number,Unit price,Currency\nVendor,ABC-123,5,EURO\n")})
+    assert response.status_code == 400, response.json()
 
 
 
@@ -201,3 +205,31 @@ def test_import_preserves_existing_placement_without_mutating_the_file():
     response = c.post("/api/projects/import", content=json.dumps(payload))
     assert response.status_code == 201, response.text
     assert response.json()["design"]["stations"][0]["placement"] == placement
+
+
+
+
+
+
+
+
+
+
+
+
+def test_invalid_currency_in_one_workbook_sheet_rejects_the_entire_upload():
+    c = client()
+    initial = b"Supplier,Part number,Unit price,Currency\nExisting,ABC,10,EUR\n"
+    assert c.post("/api/price-list", files={"file": ("existing.csv", initial)}).status_code == 200
+    workbook = Workbook()
+    workbook.active.title = "Invalid prices"
+    workbook.active.append(["Supplier", "Part number", "Unit price", "Currency"])
+    workbook.active.append(["Invalid vendor", "ABC", 5, "EURO"])
+    good = workbook.create_sheet("Valid prices")
+    good.append(["Supplier", "Part number", "Unit price", "Currency"])
+    good.append(["Valid vendor", "DEF", 6, "EUR"])
+    data = io.BytesIO()
+    workbook.save(data)
+    response = c.post("/api/price-list", files={"file": ("prices.xlsx", data.getvalue())})
+    assert response.status_code == 400 and "Invalid currency" in response.json()["detail"], response.text
+    assert [row["supplier"] for row in c.get("/api/price-list").json()] == ["Existing"]
