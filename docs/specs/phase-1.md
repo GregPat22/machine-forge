@@ -242,7 +242,19 @@ Steps are independent branches, one agent each, stopping with a report after eac
    (different files: `llm/openai_*`, `llm/gemini_*`, `base.py` flags vs `prompts.py`, `mock.py`).
 6. **Project JSON export/import** (E). Needs step 1; can run in parallel with steps 3, 4 and 5.
 7. **Frontend types and model editor** (G). Needs steps 2, 3 (the revision diff reads
-   `diff.py`) and 6 on the API side. Last.
+   `diff.py`) and 6 on the API side. Last. Split by Greg on 2026-10-28 into two parallel
+   branches that share no file:
+   - **7a, editor endpoint** (backend): `POST /api/projects/{id}/patches`, body
+     `{"expected_revision": int, "patches": [PatchOp, ...]}` (at least one). Same validator as the
+     AI, no AI call. 200: the project, as `GET /api/projects/{id}` returns it, with a new revision
+     and a chat pair ("Model editor: ..."). 400: `{"detail": {"message": str, "errors":
+     [{"index", "code", "message"}]}}`, nothing saved. 409: `expected_revision` is not the latest,
+     nothing saved. 404: unknown project. 422: malformed body, including a station sent back with
+     the derived `sequence` or `cycle_time_s`. Tests in `backend/tests/test_patch_endpoint.py`.
+     ADR 0024 (the editor uses only the existing patch operations).
+   - **7b, model editor** (frontend): `types.ts` and `api.ts` for the endpoint, the "Model" tab,
+     the Playwright smoke test and its CI job, ADR 0025 (Playwright). Its end-to-end test passes
+     once 7a is merged.
 8. **Docs**: README roadmap, `docs/architecture.md`, ADR 0013, parking-lot update.
 
 ## Open questions for Greg (answer before step 1 starts)
