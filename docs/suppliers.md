@@ -20,7 +20,7 @@ matched loosely, in English or Italian:
 | MOQ | MOQ, Lotto minimo | no |
 
 Italian number formats (`1.234,56`) and `;`-separated CSVs from Excel work. Each import replaces
-the list unless you tick **Append**. Try it with `examples/price-list-example.csv`.
+the list unless you tick **Append**.
 
 ## 2. External connectors
 
