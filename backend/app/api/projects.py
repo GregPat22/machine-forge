@@ -315,7 +315,8 @@ def rfq(project_id: str, request: Request, revision: int | None = None) -> Respo
     state = request.app.state.mf
     rev = _revision(request, project_id, revision)
     return Response(
-        content=build_rfq(rev.design, rev.number, state.storage, state.settings.base_currency),
+        content=build_rfq(rev.design, rev.number, state.storage, state.settings.base_currency,
+                          fx_rates=state.settings.fx_rates),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="rfq-{project_id}-r{rev.number}.xlsx"'},
     )

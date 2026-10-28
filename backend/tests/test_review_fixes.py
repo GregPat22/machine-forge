@@ -123,6 +123,17 @@ def test_spreadsheet_export_preserves_text_as_text():
     assert cell.data_type == "s", (cell.value, cell.data_type, catalog_csv(build_catalog(design)))
 
 
+def test_rfq_supplier_selection_compares_same_currency():
+    storage = Storage(":memory:")
+    storage.replace_price_list([
+        PriceListEntry(supplier="Dollar vendor", manufacturer="Maker A", part_number="ABC-123", unit_price=100, currency="USD"),
+        PriceListEntry(supplier="Euro vendor", manufacturer="Maker A", part_number="ABC-123", unit_price=95, currency="EUR"),
+    ])
+    design = part_design()
+    report = Sourcing(storage, Settings(fx_rates={"USD": 0.9}), []).report("p", 1, design, external=False)
+    assert report.lines[0].current.supplier == "Dollar vendor"
+    workbook = load_workbook(io.BytesIO(build_rfq(design, 1, storage, "EUR", fx_rates={"USD": 0.9})))
+    assert "Dollar vendor" in workbook.sheetnames, workbook.sheetnames
 
 
 def test_nonfinite_import_is_rejected():
@@ -236,6 +247,19 @@ def test_exact_matching_keeps_missing_or_equivalent_manufacturers(manufacturer):
     assert len(offers) == 1 and offers[0].match == "exact"
 
 
+def test_rfq_endpoint_uses_configured_conversion():
+    storage = Storage(":memory:")
+    pid = storage.create_project("problem", "reply", part_design())
+    storage.replace_price_list([
+        PriceListEntry(supplier="Dollar vendor", manufacturer="Maker A", part_number="ABC-123", unit_price=100, currency="USD"),
+        PriceListEntry(supplier="Euro vendor", manufacturer="Maker A", part_number="ABC-123", unit_price=95, currency="EUR"),
+    ])
+    c = TestClient(create_app(settings=Settings(llm_provider="mock", fx_rates={"USD": 0.9}), storage=storage,
+                             provider=MockProvider(), connectors=[]))
+    response = c.get(f"/api/projects/{pid}/rfq.xlsx")
+    assert response.status_code == 200
+    workbook = load_workbook(io.BytesIO(response.content))
+    assert "Dollar vendor" in workbook.sheetnames and "Euro vendor" not in workbook.sheetnames
 
 
 
@@ -295,3 +319,22 @@ def test_corrupt_excel_compressed_data_returns_a_client_error():
     broken[header + 30 + filename_length + extra_length] = 0xff
     response = client().post("/api/price-list", files={"file": ("broken.xlsx", bytes(broken))})
     assert response.status_code == 400, (response.status_code, response.text)
+
+
+@pytest.mark.parametrize("price", [None, 100])
+def test_rfq_keeps_an_unambiguous_supplier_without_a_conversion(price):
+    storage = Storage(":memory:")
+    storage.replace_price_list([PriceListEntry(supplier="Known vendor", part_number="ABC-123",
+                                               unit_price=price, currency="USD")])
+    workbook = load_workbook(io.BytesIO(build_rfq(part_design(), 1, storage, "EUR")))
+    assert "Known vendor" in workbook.sheetnames
+
+
+def test_rfq_does_not_rank_ambiguous_foreign_prices_without_conversion():
+    storage = Storage(":memory:")
+    storage.replace_price_list([
+        PriceListEntry(supplier="Dollar vendor", part_number="ABC-123", unit_price=100, currency="USD"),
+        PriceListEntry(supplier="Pound vendor", part_number="ABC-123", unit_price=95, currency="GBP"),
+    ])
+    workbook = load_workbook(io.BytesIO(build_rfq(part_design(), 1, storage, "EUR")))
+    assert workbook.sheetnames == ["Instructions", "Open market"]

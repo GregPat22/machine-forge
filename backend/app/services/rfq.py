@@ -15,7 +15,7 @@ from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 
 from app.models import MachineDesign, SparePart
-from app.services.sourcing import internal_offers
+from app.services.sourcing import internal_offers, price_in_base
 from app.services.spare_parts import build_catalog
 from app.services.spreadsheet import append_text_row
 from app.storage import Storage
@@ -43,14 +43,27 @@ def _description(part: SparePart) -> str:
     return part.name + (f" — {specs}" if specs else "")
 
 
-def build_rfq(design: MachineDesign, revision: int, storage: Storage, currency: str) -> bytes:
+def build_rfq(
+    design: MachineDesign, revision: int, storage: Storage, currency: str,
+    *, fx_rates: dict[str, float] | None = None,
+) -> bytes:
     price_list = storage.price_list()
     groups: dict[str, list[SparePart]] = {}
     for part in build_catalog(design):
         if part.make_or_buy != "buy":
             continue
         current = internal_offers(part, price_list)
-        supplier = min(current, key=lambda o: o.unit_price or float("inf")).supplier if current else OPEN_MARKET
+        priced = [(offer, price) for offer in current
+                  if (price := price_in_base(offer.unit_price, offer.currency, currency, fx_rates or {})) is not None
+                  and price > 0]
+        if priced:
+            supplier = min(priced, key=lambda pair: pair[1])[0].supplier
+        elif current and (len({offer.supplier for offer in current}) == 1
+                          or all(offer.unit_price is None for offer in current)):
+            # Preserve supplier assignments for unpriced catalogs: the RFQ asks for their price.
+            supplier = current[0].supplier
+        else:
+            supplier = OPEN_MARKET
         groups.setdefault(supplier, []).append(part)
 
     wb = Workbook()
