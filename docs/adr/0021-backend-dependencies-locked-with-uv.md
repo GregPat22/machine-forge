@@ -4,7 +4,7 @@ Date: 2026-10-28. Status: accepted.
 
 **Context.** The backend declared minimum versions in `pyproject.toml` and had no lock file, so
 CI, agents' workspaces and contributors could each install different versions of the same
-libraries, and ADR 0019's rule "lock exact versions" could only pin the direct package. The
+libraries, and ADR 0019's rule on exact versions could only pin the direct package. The
 options were pip-tools (one requirements file per platform and Python version), Poetry (a
 rewrite of `pyproject.toml` into its own format) and uv.
 
