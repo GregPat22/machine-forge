@@ -11,7 +11,7 @@ from app.config import Settings, load_settings
 from app.llm import LLMError, LLMNotConfigured, LLMProvider, make_provider
 from app.services.designer import ProjectNotFound
 from app.services.price_list import PriceListError
-from app.storage import Storage
+from app.storage import RevisionConflict, Storage
 from app.suppliers import SupplierConnector, make_connectors
 
 
@@ -73,6 +73,10 @@ def create_app(
     @app.exception_handler(ProjectNotFound)
     async def _not_found(_: Request, exc: ProjectNotFound) -> JSONResponse:
         return JSONResponse(status_code=404, content={"detail": str(exc)})
+
+    @app.exception_handler(RevisionConflict)
+    async def _revision_conflict(_: Request, exc: RevisionConflict) -> JSONResponse:
+        return JSONResponse(status_code=409, content={"detail": str(exc)})
 
     @app.exception_handler(PriceListError)
     async def _bad_price_list(_: Request, exc: PriceListError) -> JSONResponse:

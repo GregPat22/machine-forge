@@ -61,16 +61,17 @@ class Designer:
             {"role": "user", "content": refine_turn(project.design.model_dump_json(indent=1), request)},
         ]
         reply, design = self._edit(project.design, turns, on_progress)
-        self.storage.add_revision(project_id, request, reply, design)
+        self.storage.add_revision(project_id, request, reply, design, expected_revision=project.latest_revision)
         return self._get(project_id)
 
     def restore(self, project_id: str, number: int) -> Project:
-        self._get(project_id)
+        project = self._get(project_id)
         revision = self.storage.get_revision(project_id, number)
         if revision is None:
             raise ProjectNotFound(f"Revision {number} not found")
         self.storage.add_revision(
-            project_id, f"Restore revision {number}", f"Restored the design of revision {number}.", revision.design
+            project_id, f"Restore revision {number}", f"Restored the design of revision {number}.", revision.design,
+            expected_revision=project.latest_revision,
         )
         return self._get(project_id)
 

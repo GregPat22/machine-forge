@@ -27,6 +27,7 @@ from app.services.plc import to_zip as plc_to_zip
 from app.services.rfq import build_rfq
 from app.services.sourcing import Sourcing
 from app.services.spare_parts import build_catalog, catalog_csv
+from app.storage import RevisionConflict
 
 router = APIRouter(tags=["projects"])
 log = logging.getLogger(__name__)
@@ -132,6 +133,8 @@ def _event_stream(run: Callable[[ProgressFn], Project]) -> StreamingResponse:
             events.put(("error", {"status": 502, "detail": str(exc)}))
         except ProjectNotFound as exc:
             events.put(("error", {"status": 404, "detail": str(exc)}))
+        except RevisionConflict as exc:
+            events.put(("error", {"status": 409, "detail": str(exc)}))
         except Exception:  # never leave the client waiting on a dead stream
             log.exception("design call failed")
             events.put(("error", {"status": 500, "detail": "Unexpected server error, see the backend log."}))
