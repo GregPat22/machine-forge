@@ -28,6 +28,27 @@ def client():
                                  provider=MockProvider(), connectors=[]), raise_server_exceptions=False)
 
 
+@pytest.mark.parametrize("field", ["product", "transport", "mechanism", "parameter", "target_cycle"])
+def test_diff_reports_v2_edits(field):
+    before = demo_design()
+    after = before.model_copy(deep=True)
+    if field == "product":
+        after.product.lanes = 2
+    elif field == "transport":
+        after.transports[0].speed_mm_s = 300
+    elif field == "mechanism":
+        after.stations[0].mechanisms[0].stroke = 100
+    elif field == "parameter":
+        after.stations[0].parameters.append(Parameter(name="cavities", value=12))
+    else:
+        after.stations[0].target_cycle_time_s = 0.5
+    diff = diff_designs(before, after, 1, 2)
+    assert diff.machine or diff.lists or diff.stations or diff.components, diff.model_dump()
+    changes = diff.machine + [change for station in diff.stations for change in station.fields]
+    expected = {"product": "product.lanes", "transport": f"transports.{before.transports[0].id}.speed_mm_s",
+                "mechanism": "mechanisms.m-film-index.stroke", "parameter": "parameters.cavities",
+                "target_cycle": "target_cycle_time_s"}
+    assert expected[field] in {change.field for change in changes}
 
 
 def test_concurrent_refines_reject_a_stale_save():
@@ -262,8 +283,25 @@ def test_rfq_endpoint_uses_configured_conversion():
     assert "Dollar vendor" in workbook.sheetnames and "Euro vendor" not in workbook.sheetnames
 
 
+def test_diff_reports_transport_addition_and_removal_by_id():
+    before = demo_design()
+    after = before.model_copy(deep=True)
+    removed = after.transports.pop()
+    added = Transport(id="tr-extra", from_station="st-forming", to_station="st-cutting")
+    after.transports.append(added)
+    changes = {change.field: change for change in diff_designs(before, after, 1, 2).machine}
+    assert changes[f"transports.{removed.id}"].after is None
+    assert changes["transports.tr-extra"].before is None
 
 
+def test_reordering_parameter_and_mechanism_lists_does_not_change_the_diff():
+    before = demo_design()
+    before.stations[0].parameters = [Parameter(name="a", value=1), Parameter(name="b", value=2)]
+    after = before.model_copy(deep=True)
+    after.stations[0].parameters.reverse()
+    after.stations[0].mechanisms.reverse()
+    diff = diff_designs(before, after, 1, 2)
+    assert not diff.machine and not diff.stations
 
 
 def test_invalid_currency_in_one_workbook_sheet_rejects_the_entire_upload():
@@ -284,6 +322,16 @@ def test_invalid_currency_in_one_workbook_sheet_rejects_the_entire_upload():
     assert [row["supplier"] for row in c.get("/api/price-list").json()] == ["Existing"]
 
 
+def test_diff_reports_step_order_changes_even_when_the_cycle_time_is_unchanged():
+    before = demo_design()
+    after = before.model_copy(deep=True)
+    step = after.stations[0].steps[0]
+    step.order = 2
+    assert before.stations[0].cycle_time_s == after.stations[0].cycle_time_s
+    diff = diff_designs(before, after, 1, 2)
+    change = next(change for station in diff.stations for change in station.fields
+                  if change.field == f"steps.{step.id}.order")
+    assert change.before == "1" and change.after == "2"
 
 
 @pytest.mark.parametrize("malformed", ["font_index", "shared_string"])
