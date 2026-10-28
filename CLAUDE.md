@@ -25,7 +25,7 @@
 - No confidential data (machine specs, BOMs, CAD, prices from employers or customers) in the repo,
   tests, issues or commits. Public sources only, cited.
 - When Greg says we've made a decision, write a new short note in `docs/adr/` with the next
-  four-digit number (0019 is next): what we decided, the options, and why. Two short paragraphs.
+  four-digit number (0024 is next): what we decided, the options, and why. Two short paragraphs.
   Never edit old notes. If a decision replaces an older one, the new note says so.
 
 ## Run and test
@@ -41,5 +41,6 @@
 
 ## Commits
 
-Private repo for now. Author email for this repo is set locally. One concern per commit; update
-docs and ADRs in the same commit as the change they describe.
+Public repo since 2026-10-28 (ADR 0023): every commit, PR, issue and CI log is published.
+Author email for this repo is set locally. One concern per commit; update docs and ADRs in the
+same commit as the change they describe.

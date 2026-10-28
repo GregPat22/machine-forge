@@ -109,7 +109,8 @@ For private / on-premise models see [docs/ai-providers.md](docs/ai-providers.md)
 
 ### Try the supplier comparison
 
-1. **Suppliers** page → import `examples/price-list-example.csv`.
+1. **Suppliers** page → import your own price list (Excel/CSV; the accepted columns are in
+   [docs/suppliers.md](docs/suppliers.md)).
 2. Create a blister or cartoning machine and open **Spare parts & suppliers** → **Compare with my
    price list**.
 3. For external offers, add `MOUSER_API_KEY` and/or `NEXAR_CLIENT_ID` + `NEXAR_CLIENT_SECRET` to
@@ -143,7 +144,6 @@ frontend/src/
                          SparePartsView, RevisionsView + DiffView, SupplierRatings
 docs/                    PLAN (read first), engineering-rules, specs/ (one per phase), adr/,
                          architecture, output options, suppliers, AI providers
-examples/                sample price list
 ```
 
 ## Decisions
@@ -157,6 +157,7 @@ examples/                sample price list
 | 2026-10-20 | Next phase (v0.2): 3D concept layout + technical documents, as recommended in [output-options](docs/output-options.md). Both are derived from the design in code. |
 | 2026-10-20 | v0.3: rest of the roadmap that needs no keys or decisions (diffs, 2D/DXF, PLC skeleton, ratings + RFQ, Word templates, streaming progress), plus a realistic 3D render. |
 | 2026-10-21 | **Redefinition, see [docs/PLAN.md](docs/PLAN.md) and [docs/adr/](docs/adr/).** Concept engineering with simulation (throughput + mechanism timing), module library, STEP/Excel/AutomationML import, any AI provider, AGPL-3.0 + CLA. Realistic render deleted. Supplier connectors, ratings, RFQ workbooks and the PLC skeleton are **frozen** (bug fixes only). |
+| 2026-10-28 | **Repository public** ([ADR 0023](docs/adr/0023-public-repository.md)). Replaces the private-repo decision of 2026-10-20. Example price list removed. |
 
 **Open:** see `docs/PLAN.md` section 9.
 
