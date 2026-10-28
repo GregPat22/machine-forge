@@ -16,8 +16,9 @@ own branch and open draft PRs. They never push to `main` or merge, and they ask 
 rewriting pushed history, deleting branches, or editing CI, workflow or agent-rule files. One
 task per PR. Before a PR leaves draft, a fresh agent that did not write the code audits it and
 posts its report unedited in the PR. Greg reads a short summary (what changed, why, what is
-uncertain) and decides only level A questions; agents decide and log the rest. Parallel steps
-share one app check unless they change the screen, and agents attach screenshots. Bigger
-visual changes start with a rough version or options. Agents may add AGPL-compatible
-libraries with exact versions, listed in the summary and approved with the merge. Agreed
-parking-lot items may go in as small fixes without a spec. Details: `docs/workflow.md`.
+uncertain) and decides only level A questions; agents decide the rest, logging the ones that
+matter. Parallel steps share one app check unless they change the screen or how the app is used,
+and agents attach screenshots. Bigger visual changes start with a rough version or options.
+Agents may add AGPL-compatible libraries with exact versions, listed in the summary and approved
+with the merge. Agreed parking-lot items may go in as small fixes without a spec. Details:
+`docs/workflow.md`.

@@ -30,8 +30,8 @@ Agents ask Greg first before they:
 
 Scope:
 
-- One task per PR: one spec step, or one agreed parking-lot fix. If the task grows past its
-  description, stop and report.
+- One task per PR: one spec step, one agreed parking-lot fix, or one direct request from Greg
+  (quoted in the PR as the task). If the task grows past its description, stop and report.
 - Do only what the spec says (see `CLAUDE.md`). No "while we are here" changes.
 - Frozen areas stay untouched unless the spec names them.
 
@@ -53,8 +53,9 @@ Scope:
 - **B:** small visual tweaks (shown with screenshots), default limits and timeouts, error message
   wording, internal API shapes, how the task is split into commits, new libraries (see "New
   libraries").
-- **C:** names of fields, labels, files, tests and enum values; code structure inside the touched
-  files; formatting.
+- **C:** names of new fields, labels, files, tests and enum values; code structure inside the
+  touched files; formatting. Renaming a stored or AI-facing field or enum value is a schema
+  change (level A).
 
 ## Cycle for one task
 
@@ -77,8 +78,8 @@ Scope:
 ## Audit
 
 - The auditor is a separate agent with fresh context: a new subagent (never a fork) given only
-  the audit prompt below, the PR number and the spec. The agent that wrote the code never audits
-  its own work.
+  the audit prompt below, the PR number and the task (spec step, parking-lot entry or Greg's
+  quoted request). The agent that wrote the code never audits its own work.
 - An audit runs before every move from draft to ready, on the PR's latest commit. No skipping.
   A commit pushed after the audit needs a new audit. A FAIL keeps the PR in draft until a new
   audit passes.
@@ -88,7 +89,9 @@ Scope:
 ## App checks
 
 - Parallel steps of one batch (for example Phase 1 steps 3 to 6) share one app check. Each step
-  still has its own automated tests.
+  still has its own automated tests and PR. The last PR of the batch to be ready carries the
+  screenshots of the whole batch, run on all its branches merged locally; Greg checks once, then
+  merges the batch.
 - A step that changes what Greg sees on screen or how someone uses the app gets its own check.
 - The agent runs the "how to see it" steps itself wherever it can and attaches screenshots, so
   Greg's check is a quick look. Screenshots are saved under `.context/` (not committed).
@@ -158,7 +161,8 @@ Give this to a fresh agent. It must not have seen the implementation conversatio
 ```
 You are an independent auditor for Machine Forge. You did not write this code and have no stake
 in it. Read CLAUDE.md, docs/engineering-rules.md, docs/workflow.md and the spec for the task
-under review (docs/specs/phase-N.md, or the linked docs/parking-lot.md entry). Then read the PR
+under review (docs/specs/phase-N.md, the linked docs/parking-lot.md entry, or Greg's request
+quoted in the PR). Then read the PR
 description and the diff (gh pr view <N>, gh pr diff <N>).
 
 Do not fix anything. Report only. Check:
