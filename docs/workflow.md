@@ -93,16 +93,20 @@ comment.
   every move from draft to ready, on the PR's latest commit. No skipping. A commit pushed after
   the audit needs a new audit. A FAIL keeps the PR in draft until a new audit passes.
 - **Automatic, on every non-draft PR into `main`** (`.github/workflows/audit.yml`, ADR 0020).
-  It runs when a PR is opened, reopened or marked ready, when its base changes to `main`, and on
+  It runs when a PR is opened, reopened, marked ready or edited (including a base change), and on
   every new commit while it is not a draft. It runs the workflow and the checklist as they are on
-  `main`, reads the PR description and diff through the GitHub API (not its comments, which
-  anyone can write once the repository is public), and never checks out or runs PR code. Its
-  test evidence is the `backend` and `frontend` CI jobs, which it waits for. It posts its report
-  and sets the "Audit verdict" check, which `main` requires: nothing merges until the audit of
-  the latest commit passes.
-- **PRs it cannot audit.** PRs from forks are skipped, so the API key never reaches them; PRs
-  opened by bots (Dependabot) fail it, because the action refuses bot authors. Neither can merge
-  as it is: an agent carries the change into its own PR, where it is audited.
+  `main` and never checks out or runs PR code. A step without the API key saves the PR
+  description, the diff of the audited commit and the results of the `backend` and `frontend`
+  CI jobs (which it waits for) as files; the auditor has no commands and can read only files of
+  the `main` checkout, so the key is out of its reach and public comments never reach it. The
+  "Audit verdict" check turns "in progress" when an audit starts and gets the verdict when it
+  ends; the `main` ruleset requires it, from the GitHub Actions source. Nothing merges until the
+  audit of the latest commit passes. The report is posted as a comment.
+- **PRs it cannot audit.** PRs from forks are skipped, so the API key never reaches them; runs
+  started by bots (Dependabot) fail, because the action refuses bot actors. Neither can merge as
+  it is: an agent carries the change into its own PR, where it is audited. Re-running a failed
+  audit can give a different verdict; every run posts its report, so earlier verdicts stay
+  visible.
 
 ## App checks
 
@@ -178,8 +182,8 @@ Give a fresh agent, which must not have seen the implementation conversation, th
 `.github/audit-prompt.md` with the PR number and the task, followed by:
 
 ```
-Also read the PR's comments (gh pr view <N> --comments): earlier audits and the replies to them.
-Check that each reply's claims are true. Run the suites yourself (cd backend && .venv/bin/pytest -q; cd frontend && npm run build when
+Read the PR with gh pr view <N> --comments and gh pr diff <N>. The comments hold earlier audits
+and the replies to them: check that each reply's claims are true. Run the suites yourself (cd backend && .venv/bin/pytest -q; cd frontend && npm run build when
 the PR touches the frontend) and paste the real last lines and exit codes. Post your report as a
 PR comment yourself, exactly as written: gh pr comment <N> --body-file <file>.
 ```
