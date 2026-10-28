@@ -4,7 +4,8 @@ Machine Forge is developed in phases. Read, in this order:
 
 1. `docs/PLAN.md`: product, decisions, phases.
 2. `docs/engineering-rules.md`: what every PR is checked against.
-3. `docs/specs/phase-N.md`: the current phase. Work outside the current phase is parked, not merged.
+3. `docs/specs/phase-N.md`: the current phase. Work outside the current phase is parked, not merged,
+   except small fixes the maintainer agreed to in `docs/parking-lot.md`.
 
 ## Workflow
 

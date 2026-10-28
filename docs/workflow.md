@@ -13,7 +13,8 @@ and decide shrinks to the merge, the questions only he can answer, and a short s
 Agents may:
 
 - Commit and push to their own branch, and open a **draft** PR when the work is ready for a look.
-- Mark a PR ready for review, only after an audit of its latest commit (see "Audit").
+- Mark a PR ready for review, only after an audit of its latest commit with a verdict of PASS or
+  PASS WITH NOTES (see "Audit").
 
 Agents never:
 
@@ -42,14 +43,16 @@ Scope:
 | **B. Decide and log** | The agent | One line each in the PR details, which Greg may skip |
 | **C. Decide silently** | The agent | Nothing |
 
-- **A:** anything that changes what the user sees or how the app is used; what the AI may write
-  (rule 3); the stored schema shape and migrations; prompts; frozen modules; how untrusted files
-  are parsed; new paid services or token cost; anything public; phase scope; engineering
-  constants (they need a cited public source); a license that is not clearly AGPL-compatible.
+- **A:** a new behaviour or way of using the app; a bigger visual change (a new screen, layout
+  or style, see "Visual changes"); what the AI may write (rule 3); the stored schema shape and
+  migrations; prompts; frozen modules; how untrusted files are parsed; new paid services or token
+  cost; anything public; phase scope; engineering constants (they need a cited public source); a
+  license that is not clearly AGPL-compatible.
   Changes to `models.py`, the prompts or the viewer get an implementation plan that Greg
   approves before files change.
-- **B:** default limits and timeouts, error message wording, internal API shapes, how the task is
-  split into commits, new libraries (see "New libraries").
+- **B:** small visual tweaks (shown with screenshots), default limits and timeouts, error message
+  wording, internal API shapes, how the task is split into commits, new libraries (see "New
+  libraries").
 - **C:** names of fields, labels, files, tests and enum values; code structure inside the touched
   files; formatting.
 
@@ -77,7 +80,8 @@ Scope:
   the audit prompt below, the PR number and the spec. The agent that wrote the code never audits
   its own work.
 - An audit runs before every move from draft to ready, on the PR's latest commit. No skipping.
-  A commit pushed after the audit needs a new audit.
+  A commit pushed after the audit needs a new audit. A FAIL keeps the PR in draft until a new
+  audit passes.
 - The auditor posts its report as a PR comment itself. The comment is the record: nobody edits
   it. The implementing agent may answer in a separate comment.
 
@@ -127,6 +131,7 @@ the same PR. The usual cycle (tests, audit, summary) applies.
 ## PR description template
 
 The summary is short and in plain language: Greg reads it. The details are for the auditor.
+Wherever a spec or the plan asks for a step's "report", this PR description is that report.
 
 ```
 ## Summary

@@ -31,3 +31,6 @@ Thumbs.db
 *.tsbuildinfo
 .conductor/settings.local.toml
 .claude/settings.local.json
+
+# Agent scratch space (screenshots, notes), never committed.
+.context/

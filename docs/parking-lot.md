@@ -1,7 +1,8 @@
 # Parking lot
 
 Found, not fixed. Each entry is out of scope for the change that found it. Pick one up only when
-a spec names it.
+a spec names it, or, if Greg agreed to the fix, as a small fix (`docs/workflow.md`, "Small agreed
+fixes").
 
 ## Behaviour decided from display names (rule 1)
 
