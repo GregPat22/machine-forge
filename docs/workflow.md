@@ -50,6 +50,7 @@ Scope:
   license that is not clearly AGPL-compatible.
   Changes to `models.py`, the prompts or the viewer get an implementation plan that Greg
   approves before files change.
+  Silence is never approval: if Greg has not clearly said yes, do not proceed.
 - **B:** small visual tweaks (shown with screenshots), default limits and timeouts, error message
   wording, internal API shapes, how the task is split into commits, new libraries (see "New
   libraries").
