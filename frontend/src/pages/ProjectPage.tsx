@@ -5,12 +5,13 @@ import Chat from "../components/Chat";
 import DesignView from "../components/DesignView";
 import DocumentsView from "../components/DocumentsView";
 import LayoutView from "../components/LayoutView";
+import ModelEditor from "../components/ModelEditor";
 import PlcView from "../components/PlcView";
 import RevisionsView from "../components/RevisionsView";
 import SparePartsView from "../components/SparePartsView";
 import type { MachineDesign, Project } from "../types";
 
-const TABS = ["design", "layout", "parts", "docs", "plc", "revisions"] as const;
+const TABS = ["design", "model", "layout", "parts", "docs", "plc", "revisions"] as const;
 type Tab = (typeof TABS)[number];
 
 export default function ProjectPage() {
@@ -41,6 +42,7 @@ export default function ProjectPage() {
   const design = viewing?.design ?? project.design;
   const tabs: [Tab, string][] = [
     ["design", "Design"],
+    ["model", "Model"],
     ["layout", "3D layout"],
     ["parts", "Spare parts & suppliers"],
     ["docs", "Documents"],
@@ -76,6 +78,9 @@ export default function ProjectPage() {
         </div>
 
         {tab === "design" && <DesignView design={design} onAsk={(q) => setDraft(q)} />}
+        {tab === "model" && (
+          <ModelEditor project={project} design={design} readOnly={viewing !== null} onUpdated={onUpdated} />
+        )}
         {tab === "layout" && <LayoutView projectId={project.id} revision={revision} design={design} />}
         {tab === "parts" && <SparePartsView projectId={project.id} revision={revision} />}
         {tab === "docs" && <DocumentsView projectId={project.id} revision={revision} />}

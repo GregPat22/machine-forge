@@ -3,6 +3,8 @@ import type {
   ConnectorStatus,
   DesignDiff,
   Layout,
+  PatchError,
+  PatchOp,
   PlcProject,
   PriceListEntry,
   Progress,
@@ -39,6 +41,35 @@ const json = (body: unknown, method = "POST"): RequestInit => ({
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify(body),
 });
+
+/** The validator rejected some edits (400); nothing was saved. `errors[i].index` points into the list sent. */
+export class PatchRejected extends Error {
+  errors: PatchError[];
+  constructor(message: string, errors: PatchError[]) {
+    super(message);
+    this.errors = errors;
+  }
+}
+
+/** The project has a newer revision than the one edited (409); nothing was saved. */
+export class RevisionConflict extends Error {}
+
+/** Model editor edits: all saved as one new revision, or none (the backend validator decides). */
+async function applyPatches(id: string, expectedRevision: number, patches: PatchOp[]): Promise<Project> {
+  const response = await fetch(`/api/projects/${id}/patches`, json({ expected_revision: expectedRevision, patches }));
+  if (response.ok) return response.json() as Promise<Project>;
+  if (response.status === 400) {
+    // Keep the structured detail: the editor shows each error next to the edit it belongs to.
+    const body = await response.json().catch(() => null);
+    const detail = body?.detail as { message?: string; errors?: PatchError[] } | string | undefined;
+    if (detail && typeof detail === "object" && Array.isArray(detail.errors)) {
+      throw new PatchRejected(detail.message ?? "The edits were rejected.", detail.errors);
+    }
+    throw new Error(typeof detail === "string" ? detail : `${response.status} ${response.statusText}`);
+  }
+  const message = await errorDetail(response);
+  throw response.status === 409 ? new RevisionConflict(message) : new Error(message);
+}
 
 /** POST to a server-sent-events endpoint: reports `progress` events, resolves with the `done` payload. */
 async function streamDesign(path: string, body: unknown, onProgress: (p: Progress) => void): Promise<Project> {
@@ -77,6 +108,7 @@ export const api = {
   deleteProject: (id: string) => request<void>(`/projects/${id}`, { method: "DELETE" }),
   prompt: (id: string, message: string, onProgress: (p: Progress) => void) =>
     streamDesign(`/projects/${id}/prompt/stream`, { message }, onProgress),
+  applyPatches,
   revisions: (id: string) => request<Revision[]>(`/projects/${id}/revisions`),
   restore: (id: string, n: number) => request<Project>(`/projects/${id}/revisions/${n}/restore`, { method: "POST" }),
   diff: (id: string, from: number, to: number) => request<DesignDiff>(`/projects/${id}/diff?from=${from}&to=${to}`),
