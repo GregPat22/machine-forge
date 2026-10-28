@@ -104,6 +104,10 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+class RevisionConflict(RuntimeError):
+    """The design changed while a request was being prepared; no part of it was saved."""
+
+
 class Storage:
     def __init__(self, path: Path | str):
         if str(path) != ":memory:":
@@ -113,7 +117,7 @@ class Storage:
         self._conn.execute("PRAGMA foreign_keys = ON")
         self._conn.executescript(SCHEMA)
         self._migrate()
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
 
     def _migrate(self) -> None:
         """Add columns that newer versions expect; safe to run on every start."""
@@ -136,12 +140,22 @@ class Storage:
             self._insert_revision(project_id, 1, problem, reply, design, now)
         return project_id
 
-    def add_revision(self, project_id: str, prompt: str, reply: str, design: MachineDesign) -> int:
+    def add_revision(
+        self, project_id: str, prompt: str, reply: str, design: MachineDesign,
+        *, expected_revision: int | None = None,
+    ) -> int:
         now = _now().isoformat()
         with self._lock, self._conn:
+            # Reserve the write before reading, including across separate Storage connections.
+            self._conn.execute("BEGIN IMMEDIATE")
             (latest,) = self._conn.execute(
                 "SELECT MAX(number) FROM revisions WHERE project_id = ?", (project_id,)
             ).fetchone()
+            if expected_revision is not None and latest != expected_revision:
+                raise RevisionConflict(
+                    "The project changed while this request was running. "
+                    "Your change was not saved. Reload the project and try again."
+                )
             number = (latest or 0) + 1
             self._insert_revision(project_id, number, prompt, reply, design, now)
             self._conn.execute(
@@ -194,50 +208,54 @@ class Storage:
             )
 
     def list_projects(self) -> list[ProjectSummary]:
-        rows = self._conn.execute(
-            """SELECT p.*, (SELECT MAX(number) FROM revisions r WHERE r.project_id = p.id) AS latest
-               FROM projects p ORDER BY p.updated_at DESC"""
-        ).fetchall()
-        return [self._summary(row) for row in rows]
+        with self._lock:
+            rows = self._conn.execute(
+                """SELECT p.*, (SELECT MAX(number) FROM revisions r WHERE r.project_id = p.id) AS latest
+                   FROM projects p ORDER BY p.updated_at DESC"""
+            ).fetchall()
+            return [self._summary(row) for row in rows]
 
     def get_project(self, project_id: str) -> Project | None:
-        row = self._conn.execute(
-            """SELECT p.*, (SELECT MAX(number) FROM revisions r WHERE r.project_id = p.id) AS latest
-               FROM projects p WHERE p.id = ?""",
-            (project_id,),
-        ).fetchone()
-        if row is None:
-            return None
-        revision = self.get_revision(project_id, row["latest"])
-        assert revision is not None
-        messages = [
-            ChatMessage(role=m["role"], content=m["content"], revision=m["revision"], created_at=m["created_at"])
-            for m in self._conn.execute(
-                "SELECT * FROM messages WHERE project_id = ? ORDER BY id", (project_id,)
-            ).fetchall()
-        ]
-        return Project(**self._summary(row).model_dump(), messages=messages, design=revision.design)
+        with self._lock:
+            row = self._conn.execute(
+                """SELECT p.*, (SELECT MAX(number) FROM revisions r WHERE r.project_id = p.id) AS latest
+                   FROM projects p WHERE p.id = ?""",
+                (project_id,),
+            ).fetchone()
+            if row is None:
+                return None
+            revision = self.get_revision(project_id, row["latest"])
+            assert revision is not None
+            messages = [
+                ChatMessage(role=m["role"], content=m["content"], revision=m["revision"], created_at=m["created_at"])
+                for m in self._conn.execute(
+                    "SELECT * FROM messages WHERE project_id = ? ORDER BY id", (project_id,)
+                ).fetchall()
+            ]
+            return Project(**self._summary(row).model_dump(), messages=messages, design=revision.design)
 
     def get_revision(self, project_id: str, number: int) -> Revision | None:
-        row = self._conn.execute(
-            "SELECT * FROM revisions WHERE project_id = ? AND number = ?", (project_id, number)
-        ).fetchone()
-        if row is None:
-            return None
-        return Revision(
-            number=row["number"],
-            prompt=row["prompt"],
-            reply=row["reply"],
-            design=migrate_design(json.loads(row["design"]), from_version=row["schema_version"]),
-            schema_version=row["schema_version"],
-            created_at=row["created_at"],
-        )
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT * FROM revisions WHERE project_id = ? AND number = ?", (project_id, number)
+            ).fetchone()
+            if row is None:
+                return None
+            return Revision(
+                number=row["number"],
+                prompt=row["prompt"],
+                reply=row["reply"],
+                design=migrate_design(json.loads(row["design"]), from_version=row["schema_version"]),
+                schema_version=row["schema_version"],
+                created_at=row["created_at"],
+            )
 
     def list_revisions(self, project_id: str) -> list[Revision]:
-        rows = self._conn.execute(
-            "SELECT number FROM revisions WHERE project_id = ? ORDER BY number", (project_id,)
-        ).fetchall()
-        return [r for row in rows if (r := self.get_revision(project_id, row["number"])) is not None]
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT number FROM revisions WHERE project_id = ? ORDER BY number", (project_id,)
+            ).fetchall()
+            return [r for row in rows if (r := self.get_revision(project_id, row["number"])) is not None]
 
     def delete_project(self, project_id: str) -> bool:
         with self._lock, self._conn:

@@ -27,6 +27,7 @@ from app.services.plc import to_zip as plc_to_zip
 from app.services.rfq import build_rfq
 from app.services.sourcing import Sourcing
 from app.services.spare_parts import build_catalog, catalog_csv
+from app.storage import RevisionConflict
 
 router = APIRouter(tags=["projects"])
 log = logging.getLogger(__name__)
@@ -132,6 +133,8 @@ def _event_stream(run: Callable[[ProgressFn], Project]) -> StreamingResponse:
             events.put(("error", {"status": 502, "detail": str(exc)}))
         except ProjectNotFound as exc:
             events.put(("error", {"status": 404, "detail": str(exc)}))
+        except RevisionConflict as exc:
+            events.put(("error", {"status": 409, "detail": str(exc)}))
         except Exception:  # never leave the client waiting on a dead stream
             log.exception("design call failed")
             events.put(("error", {"status": 500, "detail": "Unexpected server error, see the backend log."}))
@@ -208,7 +211,7 @@ def revisions(project_id: str, request: Request) -> list[dict]:
 
 @router.post("/projects/{project_id}/revisions/{number}/restore")
 def restore(project_id: str, number: int, request: Request) -> dict:
-    return _project_out(_designer(request).restore(project_id, number))
+    return _project_out(Designer(request.app.state.mf.storage).restore(project_id, number))
 
 
 @router.get("/projects/{project_id}/spare-parts", response_model=list[SparePart])
@@ -312,7 +315,8 @@ def rfq(project_id: str, request: Request, revision: int | None = None) -> Respo
     state = request.app.state.mf
     rev = _revision(request, project_id, revision)
     return Response(
-        content=build_rfq(rev.design, rev.number, state.storage, state.settings.base_currency),
+        content=build_rfq(rev.design, rev.number, state.storage, state.settings.base_currency,
+                          fx_rates=state.settings.fx_rates),
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="rfq-{project_id}-r{rev.number}.xlsx"'},
     )

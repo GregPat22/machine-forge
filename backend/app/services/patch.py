@@ -145,6 +145,30 @@ def apply_patches(design: MachineDesign, patches: list[PatchOp]) -> PatchResult:
     return PatchResult(design=MachineDesign.model_validate(work.model_dump()), errors=[])
 
 
+def validate_design(design: MachineDesign) -> list[PatchError]:
+    """Check an imported complete design with the same bounds/references as AI edits.
+
+    Stored placement is legitimate project data, unlike AI-written placement. Validate its
+    coordinates separately and exclude it only from the temporary validation patches.
+    """
+    issues: list[Issue] = []
+    for field in ("name", "machine_type", "summary"):
+        _not_empty(issues, "machine", field, getattr(design, field))
+    for station in design.stations:
+        if station.placement is not None:
+            for field, value in station.placement:
+                if not math.isfinite(value):
+                    issues.append(("invalid_value", f"station '{station.id}' placement.{field} must be finite"))
+    patches = [
+        PatchOp(op="set_product", product=design.product),
+        *(PatchOp(op="add_station", station=s.model_copy(update={"placement": None})) for s in design.stations),
+        *(PatchOp(op="connect", transport=t) for t in design.transports),
+        PatchOp(op="set_utility", items=design.utilities),
+    ]
+    errors = [PatchError(index=None, code=code, message=message) for code, message in issues]
+    return errors + apply_patches(empty_design(), patches).errors
+
+
 # --- Dispatch --------------------------------------------------------------------------------
 
 Issue = tuple[str, str]  # (error code, message)

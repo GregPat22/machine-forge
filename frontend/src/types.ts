@@ -7,6 +7,72 @@ export interface Spec {
   value: string;
 }
 
+export interface Signals {
+  di: number;
+  do: number;
+  ai: number;
+  ao: number;
+  axes: number;
+  fieldbus: number;
+}
+
+export interface Product {
+  name: string | null;
+  description: string | null;
+  length_mm: number | null;
+  width_mm: number | null;
+  height_mm: number | null;
+  mass_g: number | null;
+  orientation: "unspecified" | "upright" | "lying" | "on_edge";
+  lanes: number | null;
+  pitch_mm: number | null;
+}
+
+export interface Transport {
+  id: string;
+  from_station: string;
+  to_station: string;
+  kind: "belt" | "indexing" | "rotary" | "pick_place" | "gravity";
+  length_mm: number | null;
+  speed_mm_s: number | null;
+  index_time_s: number | null;
+  buffer_capacity: number | null;
+  products_per_move: number | null;
+  reject_to: string | null;
+  reject_rate: number | null;
+}
+
+export interface Parameter {
+  name: string;
+  value: number | null;
+  unit: string | null;
+}
+
+export interface Mechanism {
+  id: string;
+  kind: "linear" | "rotary";
+  stroke: number | null;
+  max_speed: number | null;
+  acceleration: number | null;
+  cam_profile: string | null;
+  dwell_s: number | null;
+}
+
+export interface Step {
+  id: string;
+  order: number;
+  kind: "motion" | "fixed_duration";
+  mechanism_id: string | null;
+  duration_s: number | null;
+  parallel_group: number | null;
+}
+
+export interface Placement {
+  x_mm: number;
+  y_mm: number;
+  rotation_deg: number;
+}
+
 export interface Component {
   id: string;
   name: string;
@@ -20,6 +86,9 @@ export interface Component {
   criticality: Criticality;
   recommended_spares: number;
   notes: string | null;
+  role: "actuator" | "sensor" | "drive" | "controller" | "tooling" | "structure" | "consumable" | null;
+  signals: Signals | null;
+  motion: string | null;
 }
 
 export interface Station {
@@ -33,20 +102,28 @@ export interface Station {
   width_mm: number | null;
   height_mm: number | null;
   components: Component[];
+  library_ref: string | null;
+  parameters: Parameter[];
+  mechanisms: Mechanism[];
+  steps: Step[];
+  target_cycle_time_s: number | null;
+  placement: Placement | null;
 }
 
 export interface MachineDesign {
   name: string;
   machine_type: string;
   summary: string;
-  product: string;
-  throughput: string | null;
+  product: Product;
+  target_rate_text: string | null;
   footprint: string | null;
   layout_style: "inline" | "u_shape";
   stations: Station[];
+  transports: Transport[];
   utilities: string[];
   assumptions: string[];
   open_questions: string[];
+  schema_version: 2;
 }
 
 export interface ChatMessage {

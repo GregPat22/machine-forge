@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 
-from app.llm import LLMError, LLMProvider, Turn
+from app.llm import LLMError, LLMNotConfigured, LLMProvider, Turn
 from app.llm.base import ProgressFn
 from app.llm.prompts import SYSTEM_PROMPT, first_turn, refine_turn, repair_turn
 from app.models import MachineDesign, Project
@@ -34,7 +34,7 @@ class PatchRejected(LLMError):
 
 
 class Designer:
-    def __init__(self, storage: Storage, provider: LLMProvider, max_attempts: int = DEFAULT_MAX_REPAIR_ATTEMPTS):
+    def __init__(self, storage: Storage, provider: LLMProvider | None = None, max_attempts: int = DEFAULT_MAX_REPAIR_ATTEMPTS):
         if max_attempts < 1:
             raise ValueError("max_attempts must be at least 1")
         self.storage = storage
@@ -61,16 +61,17 @@ class Designer:
             {"role": "user", "content": refine_turn(project.design.model_dump_json(indent=1), request)},
         ]
         reply, design = self._edit(project.design, turns, on_progress)
-        self.storage.add_revision(project_id, request, reply, design)
+        self.storage.add_revision(project_id, request, reply, design, expected_revision=project.latest_revision)
         return self._get(project_id)
 
     def restore(self, project_id: str, number: int) -> Project:
-        self._get(project_id)
+        project = self._get(project_id)
         revision = self.storage.get_revision(project_id, number)
         if revision is None:
             raise ProjectNotFound(f"Revision {number} not found")
         self.storage.add_revision(
-            project_id, f"Restore revision {number}", f"Restored the design of revision {number}.", revision.design
+            project_id, f"Restore revision {number}", f"Restored the design of revision {number}.", revision.design,
+            expected_revision=project.latest_revision,
         )
         return self._get(project_id)
 
@@ -78,6 +79,8 @@ class Designer:
         self, design: MachineDesign, turns: list[Turn], on_progress: ProgressFn | None, first: bool = False
     ) -> tuple[str, MachineDesign]:
         """Ask for patches and apply them; on errors, send them back, up to `max_attempts` answers."""
+        if self.provider is None:
+            raise LLMNotConfigured("Configure an AI provider before creating or refining a design.")
         errors: list[PatchError] = []
         for attempt in range(1, self.max_attempts + 1):
             update = self.provider.structured(

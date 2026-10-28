@@ -87,8 +87,14 @@ def _rows_from_csv(data: bytes) -> list[list[object]]:
 def _sheets_from_xlsx(data: bytes) -> list[tuple[str, list[list[object]]]]:
     from openpyxl import load_workbook
 
-    workbook = load_workbook(io.BytesIO(data), read_only=True, data_only=True)
-    return [(ws.title, [list(row) for row in ws.iter_rows(values_only=True)]) for ws in workbook.worksheets]
+    try:
+        workbook = load_workbook(io.BytesIO(data), read_only=True, data_only=True)
+        try:
+            return [(ws.title, [list(row) for row in ws.iter_rows(values_only=True)]) for ws in workbook.worksheets]
+        finally:
+            workbook.close()
+    except Exception as exc:  # openpyxl, XML and ZIP parsers use unrelated errors for malformed files
+        raise PriceListError("This is not a valid Excel workbook. Upload a .xlsx file or export it as CSV.") from exc
 
 
 def _parse_rows(rows: list[list[object]], filename: str, default_currency: str) -> list[PriceListEntry]:
@@ -111,6 +117,7 @@ def _parse_rows(rows: list[list[object]], filename: str, default_currency: str) 
             continue
         lead = _number(cell(row, "lead_time_days"))
         moq = _number(cell(row, "moq"))
+        currency = (_text(cell(row, "currency")) or default_currency).upper()
         entries.append(
             PriceListEntry(
                 supplier=supplier,
@@ -118,7 +125,7 @@ def _parse_rows(rows: list[list[object]], filename: str, default_currency: str) 
                 part_number=part_number,
                 description=description,
                 unit_price=price,
-                currency=(_text(cell(row, "currency")) or default_currency).upper(),
+                currency=currency,
                 lead_time_days=int(lead) if lead is not None else None,
                 moq=int(moq) if moq is not None else None,
                 source_file=filename,
@@ -154,4 +161,7 @@ def parse_price_list(filename: str, data: bytes, default_currency: str = "EUR") 
     if not entries:
         raise PriceListError("No usable rows: each row needs a supplier and a part number or description "
                              "(and a price, for answered RFQ sheets).")
+    for entry in entries:
+        if re.fullmatch(r"[A-Z]{3}", entry.currency) is None:
+            raise PriceListError(f"Invalid currency '{entry.currency}': use a three-letter code such as EUR or USD.")
     return entries

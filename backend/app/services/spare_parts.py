@@ -6,6 +6,7 @@ import csv
 import io
 
 from app.models import MachineDesign, SparePart
+from app.services.spreadsheet import csv_cell
 
 _CRITICALITY_RANK = {"A": 0, "B": 1, "C": 2}
 
@@ -71,9 +72,9 @@ def catalog_csv(parts: list[SparePart]) -> str:
         "Recommended spares", "Wear part", "Criticality", "Used in", "Specs",
     ])
     for p in parts:
-        writer.writerow([
+        writer.writerow([csv_cell(value) for value in [
             p.item, p.name, p.category, p.manufacturer or "", p.part_number or "", p.make_or_buy,
             p.quantity_in_machine, p.recommended_spares, "yes" if p.wear_part else "no", p.criticality,
             "; ".join(p.used_in), "; ".join(f"{s.name}: {s.value}" for s in p.specs),
-        ])
+        ]])
     return out.getvalue()

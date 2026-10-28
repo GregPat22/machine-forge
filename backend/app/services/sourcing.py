@@ -42,7 +42,9 @@ def _similar(part: SparePart, entry: PriceListEntry) -> bool:
 
 def internal_offers(part: SparePart, price_list: list[PriceListEntry]) -> list[Offer]:
     pn = normalize_pn(part.part_number)
-    exact = [e for e in price_list if pn and normalize_pn(e.part_number) == pn]
+    exact = [e for e in price_list if pn and normalize_pn(e.part_number) == pn
+             and (not part.manufacturer or not e.manufacturer
+                  or part.manufacturer.strip().casefold() == e.manufacturer.strip().casefold())]
     entries, match = (exact, "exact") if exact else ([e for e in price_list if _similar(part, e)], "similar")
     return [
         Offer(
@@ -60,6 +62,18 @@ def internal_offers(part: SparePart, price_list: list[PriceListEntry]) -> list[O
         )
         for e in entries
     ]
+
+
+def price_in_base(
+    price: float | None, currency: str | None, base_currency: str, fx_rates: dict[str, float],
+) -> float | None:
+    if price is None:
+        return None
+    code = (currency or base_currency).upper()
+    if code == base_currency:
+        return round(price, 4)
+    rate = fx_rates.get(code)
+    return round(price * rate, 4) if rate is not None else None
 
 
 class Sourcing:
@@ -139,13 +153,7 @@ class Sourcing:
     # --- scoring --------------------------------------------------------------------------
 
     def _to_base(self, price: float | None, currency: str | None) -> float | None:
-        if price is None:
-            return None
-        code = (currency or self.settings.base_currency).upper()
-        if code == self.settings.base_currency:
-            return round(price, 4)
-        rate = self.settings.fx_rates.get(code)
-        return round(price * rate, 4) if rate is not None else None
+        return price_in_base(price, currency, self.settings.base_currency, self.settings.fx_rates)
 
     def _line(self, part: SparePart, offers: list[Offer], ratings: dict[str, SupplierRating]) -> SourcingLine:
         needed = part.quantity_in_machine + part.recommended_spares

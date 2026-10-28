@@ -115,6 +115,10 @@ export const api = {
 
 export function money(value: number | null | undefined, currency: string): string {
   if (value === null || value === undefined) return "—";
+  // Older imported rows may contain a currency that Intl.NumberFormat cannot accept.
+  if (!/^[A-Za-z]{3}$/.test(currency)) {
+    return `${new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(value)} ${currency}`;
+  }
   return new Intl.NumberFormat(undefined, { style: "currency", currency, maximumFractionDigits: 2 }).format(value);
 }
 

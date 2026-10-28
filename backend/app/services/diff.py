@@ -11,15 +11,17 @@ from typing import Literal
 
 from pydantic import BaseModel
 
-from app.models import Component, MachineDesign, Signals, Station
+from app.models import Component, MachineDesign, Product, Signals, Station
 
 ChangeKind = Literal["added", "removed", "modified"]
 
 MACHINE_FIELDS = (
-    "name", "machine_type", "product.description", "target_rate_text", "footprint", "layout_style", "summary",
+    "name", "machine_type", *(f"product.{field}" for field in Product.model_fields),
+    "target_rate_text", "footprint", "layout_style", "summary",
 )
 LIST_FIELDS = ("utilities", "assumptions", "open_questions")
-STATION_FIELDS = ("name", "kind", "sequence", "function", "cycle_time_s", "length_mm", "width_mm", "height_mm")
+STATION_FIELDS = ("name", "kind", "sequence", "function", "cycle_time_s", "length_mm", "width_mm", "height_mm",
+                  "library_ref", "target_cycle_time_s", "placement")
 COMPONENT_FIELDS = (
     "name", "category", "quantity", "manufacturer", "part_number", "make_or_buy",
     "wear_part", "criticality", "recommended_spares", "notes", "role", "signals", "motion",
@@ -69,6 +71,8 @@ def _fmt(value: object) -> str | None:
     if isinstance(value, Signals):
         counts = [(k.upper() if k != "axes" else "Axes", n) for k, n in value.model_dump().items() if n]
         return ", ".join(f"{k} {n}" for k, n in counts) or "none"
+    if isinstance(value, BaseModel):
+        return value.model_dump_json()
     if isinstance(value, bool):
         return "yes" if value else "no"
     if isinstance(value, float) and value.is_integer():
@@ -89,12 +93,36 @@ def _specs(component: Component) -> str:
     return "; ".join(f"{s.name}: {s.value}" for s in component.specs)
 
 
+def _item_changes(before: list, after: list, key: str, prefix: str) -> list[FieldChange]:
+    """Match structured items by stable ids (Parameter.name is its key, not a display label)."""
+    old = {getattr(item, key): item for item in before}
+    new = {getattr(item, key): item for item in after}
+    changes = []
+    for item_id in dict.fromkeys([*old, *new]):
+        path = f"{prefix}.{item_id}"
+        if item_id not in old or item_id not in new:
+            changes.append(FieldChange(field=path, before=_fmt(old.get(item_id)), after=_fmt(new.get(item_id))))
+        else:
+            fields = tuple(field for field in type(new[item_id]).model_fields if field != key)
+            for change in _field_changes(old[item_id], new[item_id], fields):
+                changes.append(change.model_copy(update={"field": f"{path}.{change.field}"}))
+    return changes
+
+
+def _station_changes(before: Station, after: Station) -> list[FieldChange]:
+    changes = _field_changes(before, after, STATION_FIELDS)
+    for field, key in (("parameters", "name"), ("mechanisms", "id"), ("steps", "id")):
+        changes += _item_changes(getattr(before, field), getattr(after, field), key, field)
+    return changes
+
+
 def _components(design: MachineDesign) -> dict[str, tuple[Component, Station]]:
     return {c.id: (c, s) for s in design.stations for c in s.components}
 
 
 def diff_designs(before: MachineDesign, after: MachineDesign, from_revision: int, to_revision: int) -> DesignDiff:
     machine = _field_changes(before, after, MACHINE_FIELDS)
+    machine += _item_changes(before.transports, after.transports, "id", "transports")
     lists = []
     for field in LIST_FIELDS:
         old, new = getattr(before, field), getattr(after, field)
@@ -108,7 +136,7 @@ def diff_designs(before: MachineDesign, after: MachineDesign, from_revision: int
     for sid, station in new_st.items():
         if sid not in old_st:
             stations.append(StationChange(station_id=sid, name=station.name, change="added"))
-        elif fields := _field_changes(old_st[sid], station, STATION_FIELDS):
+        elif fields := _station_changes(old_st[sid], station):
             stations.append(StationChange(station_id=sid, name=station.name, change="modified", fields=fields))
     stations += [StationChange(station_id=sid, name=s.name, change="removed") for sid, s in old_st.items() if sid not in new_st]
 
