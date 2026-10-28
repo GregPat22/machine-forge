@@ -53,7 +53,7 @@ Think special-purpose machines: packaging, filling, assembly, inspection.
 
 ## Quick start
 
-Requirements: **Python 3.11+**, **Node.js 20+**, git.
+Requirements: **Python 3.11+**, **[uv](https://docs.astral.sh/uv/getting-started/installation/)**, **Node.js 20+**, git.
 
 ```bash
 git clone https://github.com/GregPat22/machine-forge.git
@@ -65,9 +65,8 @@ cd machine-forge
 macOS / Linux:
 ```bash
 cd backend
-python3 -m venv .venv
+uv sync --locked --extra dev  # exact versions from uv.lock, into .venv
 source .venv/bin/activate
-pip install -e ".[dev]"
 cp .env.example .env          # then edit .env (see "Configure the AI")
 uvicorn app.main:create_app --factory --reload --reload-dir app --timeout-graceful-shutdown 2
 ```
@@ -75,9 +74,8 @@ uvicorn app.main:create_app --factory --reload --reload-dir app --timeout-gracef
 Windows (PowerShell):
 ```powershell
 cd backend
-py -3 -m venv .venv
+uv sync --locked --extra dev
 .venv\Scripts\Activate.ps1
-pip install -e ".[dev]"
 Copy-Item .env.example .env   # then edit .env
 uvicorn app.main:create_app --factory --reload --reload-dir app --timeout-graceful-shutdown 2
 ```
