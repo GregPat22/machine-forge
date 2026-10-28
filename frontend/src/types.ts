@@ -110,6 +110,66 @@ export interface Station {
   placement: Placement | null;
 }
 
+/** A station as a patch sends it: `sequence` and `cycle_time_s` are derived and read-only (ADR 0012). */
+export type StationIn = Omit<Station, "sequence" | "cycle_time_s">;
+
+// Mirrors backend/app/services/patch.py: one flat edit, `op` plus the operands it uses (ADR 0013).
+export type PatchOpKind =
+  | "add_station"
+  | "remove_station"
+  | "set_param"
+  | "add_component"
+  | "remove_component"
+  | "replace_component"
+  | "add_mechanism"
+  | "set_mechanism"
+  | "add_step"
+  | "remove_step"
+  | "connect"
+  | "disconnect"
+  | "set_product"
+  | "set_utility"
+  | "add_assumption"
+  | "add_open_question";
+
+export interface PatchOp {
+  op: PatchOpKind;
+  station_id?: string | null;
+  component_id?: string | null;
+  step_id?: string | null;
+  transport_id?: string | null;
+  name?: string | null;
+  value?: number | null;
+  text?: string | null;
+  unit?: string | null;
+  items?: string[] | null;
+  station?: StationIn | null;
+  component?: Component | null;
+  mechanism?: Mechanism | null;
+  step?: Step | null;
+  transport?: Transport | null;
+  product?: Product | null;
+}
+
+export interface PatchError {
+  /** Position of the rejected op in the list sent; null for the request as a whole. */
+  index: number | null;
+  code:
+    | "unknown_station"
+    | "unknown_component"
+    | "unknown_mechanism"
+    | "unknown_step"
+    | "unknown_transport"
+    | "duplicate_id"
+    | "missing_operand"
+    | "invalid_value"
+    | "computed_field"
+    | "graph_cycle"
+    | "orphan_transport"
+    | "unknown_op";
+  message: string;
+}
+
 export interface MachineDesign {
   name: string;
   machine_type: string;
