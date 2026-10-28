@@ -1,19 +1,18 @@
 # Automatic audit of every non-draft pull request (ADR 0020, docs/workflow.md "Audit").
 #
-# pull_request_target runs this file and .github/audit-prompt.md as they are on main, so a pull
-# request cannot change its own audit. No pull request code is checked out or run: the auditor
-# reads the PR through the GitHub API. Pull requests from forks are skipped, so the API key never
-# reaches them. The audit job can only read GitHub; the publish job, which has no API key, posts
-# the report unchanged and sets the "Audit verdict" check that the main ruleset requires.
+# pull_request_target runs this file from the PR's base branch. The audit job runs only when that
+# base is main, so the workflow and .github/audit-prompt.md always come from main and a pull
+# request cannot change its own audit; changing a PR's base to main starts a new audit, whose
+# check replaces any earlier one. No pull request code is checked out or run: the auditor reads
+# the PR through the GitHub API and can read files only inside the main checkout. Pull requests
+# from forks are skipped, so the API key never reaches them. The audit job can only read GitHub;
+# the publish job, which has no API key, posts the report unchanged and sets the "Audit verdict"
+# check that the main ruleset requires.
 name: Audit
 
 on:
   pull_request_target:
-    types: [opened, reopened, synchronize, ready_for_review]
-
-concurrency:
-  group: audit-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
+    types: [opened, reopened, synchronize, ready_for_review, edited]
 
 permissions: {}
 
@@ -21,9 +20,14 @@ jobs:
   audit:
     if: >-
       github.event.pull_request.draft == false &&
-      github.event.pull_request.head.repo.full_name == github.repository
+      github.event.pull_request.base.ref == 'main' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      (github.event.action != 'edited' || github.event.changes.base != null)
+    concurrency:
+      group: audit-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     permissions:
       contents: read
       pull-requests: read
@@ -32,10 +36,26 @@ jobs:
     outputs:
       result: ${{ steps.claude.outputs.structured_output }}
     steps:
-      # No ref: on pull_request_target this checks out main, never the PR.
+      # No ref: the base branch, which the job condition requires to be main. Never the PR.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+
+      # The auditor reads the test jobs' results, so wait until they finish (at most 20 minutes).
+      - name: Wait for the test jobs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          for _ in $(seq 1 80); do
+            state=$(gh api "repos/$GITHUB_REPOSITORY/commits/$SHA/check-runs?per_page=100" \
+              --jq '[.check_runs[] | select(.name == "backend" or .name == "frontend")]
+                    | "\(length) \([.[] | select(.status != "completed")] | length)"' || echo "0 0")
+            read -r found pending <<<"$state"
+            if [ "$found" -ge 2 ] && [ "$pending" -eq 0 ]; then exit 0; fi
+            sleep 15
+          done
+          echo "The test jobs did not finish in 20 minutes; the auditor will see them as missing."
 
       - id: prompt
         env:
@@ -47,11 +67,12 @@ jobs:
             cat .github/audit-prompt.md
             echo
             echo "Repository: $GITHUB_REPOSITORY. Pull request: #$PR. Audited commit: $SHA."
-            echo "The working directory is main, not the PR: read the PR only with gh pr view,"
-            echo "gh pr diff and gh pr checks. You cannot run tests here. For check 5, read the"
-            echo "backend and frontend jobs with gh pr checks $PR; a failing or missing test job is"
-            echo "a FAIL. Return the verdict and the full report as structured output; do not post"
-            echo "anything yourself."
+            echo "The working directory is main, not the PR: read the PR only with gh pr view $PR"
+            echo "and gh pr diff $PR (not its comments), and the test jobs with gh pr checks $PR."
+            echo "You cannot run tests here; for check 5, a failing or missing backend or frontend"
+            echo "job is a FAIL. The first line of the report must be exactly"
+            echo "\"Verdict: <verdict> (commit $SHA)\". Return the verdict and the full report as"
+            echo "structured output; do not post anything yourself."
             echo 'MF_AUDIT_PROMPT_END'
           } >> "$GITHUB_OUTPUT"
 
@@ -64,7 +85,8 @@ jobs:
           claude_args: >-
             --model claude-opus-5-5
             --max-turns 60
-            --allowedTools "Read,Grep,Glob,Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr checks:*)"
+            --allowedTools "Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr checks:*)"
+            --disallowedTools "WebFetch,WebSearch,Read(./.git/**),Read(//proc/**)"
             --json-schema '{"type":"object","properties":{"verdict":{"type":"string","enum":["PASS","PASS WITH NOTES","FAIL"]},"report":{"type":"string"}},"required":["verdict","report"],"additionalProperties":false}'
 
   publish:
@@ -90,19 +112,26 @@ jobs:
             verdict=$(jq -r '.verdict // ""' <<<"$RESULT" 2>/dev/null || true)
             jq -r '.report // ""' <<<"$RESULT" > report.md 2>/dev/null || : > report.md
           fi
-          # The report is the record: post it exactly as the auditor wrote it.
-          if [ -s report.md ]; then
-            gh pr comment "$PR" --repo "$GITHUB_REPOSITORY" --body-file report.md
-          fi
           first_line=$(head -n 1 report.md)
           case "$verdict" in
             "PASS"|"PASS WITH NOTES") conclusion=success; title="Verdict: $verdict" ;;
             "FAIL") conclusion=failure; title="Verdict: FAIL" ;;
             *) conclusion=failure; title="The audit did not finish" ;;
           esac
-          if [ -n "$verdict" ] && [[ "$first_line" != "Verdict: $verdict ("* ]]; then
+          if [ -n "$verdict" ] && [ "$first_line" != "Verdict: $verdict (commit $SHA)" ]; then
             conclusion=failure
-            title="The report's first line does not match the verdict ($verdict)"
+            title="The report's first line does not match the verdict and commit"
+          fi
+          # The report is the record: post it exactly as the auditor wrote it, unless it looks
+          # like it contains an Anthropic key.
+          if grep -q 'sk-ant-' report.md; then
+            conclusion=failure
+            title="Report withheld: it looks like it contains an API key"
+          elif grep -q '[^[:space:]]' report.md; then
+            if ! gh pr comment "$PR" --repo "$GITHUB_REPOSITORY" --body-file report.md; then
+              conclusion=failure
+              title="The report could not be posted"
+            fi
           fi
           gh api -X POST "repos/$GITHUB_REPOSITORY/check-runs" \
             -f name="Audit verdict" -f head_sha="$SHA" \

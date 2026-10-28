@@ -92,14 +92,17 @@ comment.
   number and the task (spec step, parking-lot entry or Greg's quoted request). It runs before
   every move from draft to ready, on the PR's latest commit. No skipping. A commit pushed after
   the audit needs a new audit. A FAIL keeps the PR in draft until a new audit passes.
-- **Automatic, on every non-draft PR** (`.github/workflows/audit.yml`, ADR 0020). It runs when a
-  PR is opened, reopened or marked ready, and on every new commit while it is not a draft. It
-  runs the workflow and the checklist as they are on `main`, reads the PR through the GitHub
-  API, and never checks out or runs PR code; its test evidence is the `backend` and `frontend`
-  CI jobs. It skips PRs from forks, so the API key never reaches them. It posts its report and
-  sets the "Audit verdict" check, which `main` requires: nothing merges until the audit of the
-  latest commit passes. It does not run on PRs opened by bots (Dependabot); an agent carries
-  such a change into its own PR.
+- **Automatic, on every non-draft PR into `main`** (`.github/workflows/audit.yml`, ADR 0020).
+  It runs when a PR is opened, reopened or marked ready, when its base changes to `main`, and on
+  every new commit while it is not a draft. It runs the workflow and the checklist as they are on
+  `main`, reads the PR description and diff through the GitHub API (not its comments, which
+  anyone can write once the repository is public), and never checks out or runs PR code. Its
+  test evidence is the `backend` and `frontend` CI jobs, which it waits for. It posts its report
+  and sets the "Audit verdict" check, which `main` requires: nothing merges until the audit of
+  the latest commit passes.
+- **PRs it cannot audit.** PRs from forks are skipped, so the API key never reaches them; PRs
+  opened by bots (Dependabot) fail it, because the action refuses bot authors. Neither can merge
+  as it is: an agent carries the change into its own PR, where it is audited.
 
 ## App checks
 
@@ -175,7 +178,8 @@ Give a fresh agent, which must not have seen the implementation conversation, th
 `.github/audit-prompt.md` with the PR number and the task, followed by:
 
 ```
-Run the suites yourself (cd backend && .venv/bin/pytest -q; cd frontend && npm run build when
+Also read the PR's comments (gh pr view <N> --comments): earlier audits and the replies to them.
+Check that each reply's claims are true. Run the suites yourself (cd backend && .venv/bin/pytest -q; cd frontend && npm run build when
 the PR touches the frontend) and paste the real last lines and exit codes. Post your report as a
 PR comment yourself, exactly as written: gh pr comment <N> --body-file <file>.
 ```
