@@ -28,6 +28,9 @@ Agents ask Greg first before they:
 - Edit `CLAUDE.md` or any agent-rule file: `docs/workflow.md`, `docs/engineering-rules.md`,
   `.claude/`, `.conductor/settings.toml`.
 
+Silence is never approval, here and for level A questions: if Greg has not clearly said yes, do
+not proceed.
+
 Scope:
 
 - One task per PR: one spec step, one agreed parking-lot fix, or one direct request from Greg
@@ -50,7 +53,6 @@ Scope:
   license that is not clearly AGPL-compatible.
   Changes to `models.py`, the prompts or the viewer get an implementation plan that Greg
   approves before files change.
-  Silence is never approval: if Greg has not clearly said yes, do not proceed.
 - **B:** small visual tweaks (shown with screenshots), default limits and timeouts, error message
   wording, internal API shapes, how the task is split into commits, new libraries (see "New
   libraries").
