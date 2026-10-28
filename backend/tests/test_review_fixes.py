@@ -72,6 +72,21 @@ def test_concurrent_refines_reject_a_stale_save():
     assert len(project.messages) == 4
 
 
+@pytest.mark.parametrize("bad", ["negative_quantity", "orphan_transport", "duplicate_station"])
+def test_project_import_enforces_design_invariants(bad):
+    c = client()
+    project = c.post("/api/projects", json={"problem": "a production line"}).json()
+    payload = c.get(f"/api/projects/{project['id']}/export").json()
+    design = payload["revisions"][0]["design"]
+    if bad == "negative_quantity":
+        design["stations"][0]["components"][0]["quantity"] = -5
+    elif bad == "orphan_transport":
+        design["transports"][0]["to_station"] = "station-that-does-not-exist"
+    else:
+        design["stations"].append(design["stations"][0])
+    response = c.post("/api/projects/import", content=json.dumps(payload))
+    assert response.status_code == 400, f"invalid design accepted: {response.status_code}"
+    assert len(c.get("/api/projects").json()) == 1
 
 
 def part_design(**overrides):
@@ -93,6 +108,13 @@ def part_design(**overrides):
 
 
 
+def test_nonfinite_import_is_rejected():
+    c = client()
+    project = c.post("/api/projects", json={"problem": "a production line"}).json()
+    payload = c.get(f"/api/projects/{project['id']}/export").json()
+    payload["revisions"][0]["design"]["product"]["mass_g"] = "1e309"
+    response = c.post("/api/projects/import", content=json.dumps(payload))
+    assert response.status_code == 400, (response.status_code, response.text, len(c.get("/api/projects").json()))
 
 
 def test_restore_does_not_require_a_configured_ai_provider():
@@ -147,3 +169,35 @@ def test_api_reports_stale_prompt_without_saving_it(stream):
         assert response.status_code == 409, response.text
     assert storage.get_project(pid).latest_revision == 2
     assert storage.get_project(pid).design.assumptions[-1] == "keep this newer edit"
+
+
+@pytest.mark.parametrize(("path", "value"), [
+    (("product", "lanes"), 0),
+    (("transports", 0, "reject_rate"), 1.5),
+    (("stations", 0, "mechanisms", 0, "max_speed"), -1),
+    (("stations", 0, "components", 0, "signals", "di"), -1),
+    (("stations", 0, "components", 0, "motion"), "missing-mechanism"),
+    (("stations", 0, "components", 0, "id"), "Invalid ID"),
+])
+def test_import_uses_the_patch_value_and_reference_checks(path, value):
+    c = client()
+    pid = c.post("/api/projects", json={"problem": "a production line"}).json()["id"]
+    payload = c.get(f"/api/projects/{pid}/export").json()
+    target = payload["revisions"][0]["design"]
+    for field in path[:-1]:
+        target = target[field]
+    target[path[-1]] = value
+    response = c.post("/api/projects/import", content=json.dumps(payload))
+    assert response.status_code == 400, response.text
+    assert len(c.get("/api/projects").json()) == 1
+
+
+def test_import_preserves_existing_placement_without_mutating_the_file():
+    c = client()
+    pid = c.post("/api/projects", json={"problem": "a production line"}).json()["id"]
+    payload = c.get(f"/api/projects/{pid}/export").json()
+    placement = {"x_mm": -100, "y_mm": 200, "rotation_deg": 90}
+    payload["revisions"][0]["design"]["stations"][0]["placement"] = placement
+    response = c.post("/api/projects/import", content=json.dumps(payload))
+    assert response.status_code == 201, response.text
+    assert response.json()["design"]["stations"][0]["placement"] == placement

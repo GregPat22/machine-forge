@@ -27,9 +27,6 @@ comparisons and regex tests on names, not indirect ones (see `docs/engineering-r
 - `backend/app/services/io_points.py`: a `safety` component gets two-channel safety inputs only
   when its role is `sensor`. With no role, a door switch's inputs are plain DI, and the PLC sizing
   counts them as standard inputs. Nothing requires a role on safety parts.
-- `backend/app/services/project_json.py`: an imported project is checked by Pydantic only, not by
-  the patch validator, so a negative signal count (for example `di: -1`) is accepted and the I/O
-  list silently ignores it. Found by the step 3 audit.
 - `backend/app/services/sourcing.py:30-41`: `_similar` matches a spare part to a price-list
   entry by word overlap of names and descriptions. Fuzzy suggestion only. Replace with
   `part_number`, `manufacturer` and structured spec keys.

@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field, ValidationError
 
 from app.migrations.design_v1 import CURRENT_VERSION, migrate_design
 from app.models import ChatMessage, Project, Revision
+from app.services.patch import validate_design
 from app.storage import Storage
 
 FORMAT = "machine-forge-project"
@@ -121,6 +122,9 @@ def import_project(storage: Storage, data: bytes, max_bytes: int = DEFAULT_MAX_I
         except (ValidationError, ValueError) as exc:
             detail = _first_error(exc) if isinstance(exc, ValidationError) else str(exc)
             raise ProjectImportError(f"Revision {rev.number} has an invalid design: {detail}") from exc
+        errors = validate_design(design)
+        if errors:
+            raise ProjectImportError(f"Revision {rev.number} has an invalid design: {errors[0].message}")
         revisions.append(
             Revision(number=rev.number, prompt=rev.prompt, reply=rev.reply, design=design,
                      schema_version=CURRENT_VERSION, created_at=rev.created_at)
