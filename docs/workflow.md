@@ -75,19 +75,31 @@ Scope:
 6. **Audit.** Start a fresh auditor (see "Audit"). Fix what it finds, push, and audit again.
 7. **Ready.** Mark the PR ready and send Greg the summary block from the PR description, the
    audit verdict line and the screenshots.
-8. **Greg decides.** He reads the summary, looks at the screenshots or the app, and merges or
+8. **Automatic audit.** Marking the PR ready starts the automatic audit (see "Audit"). It must
+   pass before the PR can merge.
+9. **Greg decides.** He reads the summary, looks at the screenshots or the app, and merges or
    says what to change. New libraries are approved as part of the merge.
 
 ## Audit
 
-- The auditor is a separate agent with fresh context: a new subagent (never a fork) given only
-  the audit prompt below, the PR number and the task (spec step, parking-lot entry or Greg's
-  quoted request). The agent that wrote the code never audits its own work.
-- An audit runs before every move from draft to ready, on the PR's latest commit. No skipping.
-  A commit pushed after the audit needs a new audit. A FAIL keeps the PR in draft until a new
-  audit passes.
-- The auditor posts its report as a PR comment itself. The comment is the record: nobody edits
-  it. The implementing agent may answer in a separate comment.
+Every PR gets two audits by an agent that did not write the code. Both use the same checklist,
+`.github/audit-prompt.md`. Every report goes into the PR as a comment, exactly as written; the
+comment is the record and nobody edits it. The implementing agent may answer in a separate
+comment.
+
+- **Before ready, started by the agent.** The auditor is a separate agent with fresh context: a
+  new subagent (never a fork) given only the instructions in "Audit agent: instructions", the PR
+  number and the task (spec step, parking-lot entry or Greg's quoted request). It runs before
+  every move from draft to ready, on the PR's latest commit. No skipping. A commit pushed after
+  the audit needs a new audit. A FAIL keeps the PR in draft until a new audit passes.
+- **Automatic, on every non-draft PR** (`.github/workflows/audit.yml`, ADR 0020). It runs when a
+  PR is opened, reopened or marked ready, and on every new commit while it is not a draft. It
+  runs the workflow and the checklist as they are on `main`, reads the PR through the GitHub
+  API, and never checks out or runs PR code; its test evidence is the `backend` and `frontend`
+  CI jobs. It skips PRs from forks, so the API key never reaches them. It posts its report and
+  sets the "Audit verdict" check, which `main` requires: nothing merges until the audit of the
+  latest commit passes. It does not run on PRs opened by bots (Dependabot); an agent carries
+  such a change into its own PR.
 
 ## App checks
 
@@ -157,36 +169,15 @@ Wherever a spec or the plan asks for a step's "report", this PR description is t
 - Risks: what could be wrong that the tests would not catch.
 ```
 
-## Audit agent: prompt
+## Audit agent: instructions
 
-Give this to a fresh agent. It must not have seen the implementation conversation.
+Give a fresh agent, which must not have seen the implementation conversation, the text of
+`.github/audit-prompt.md` with the PR number and the task, followed by:
 
 ```
-You are an independent auditor for Machine Forge. You did not write this code and have no stake
-in it. Read CLAUDE.md, docs/engineering-rules.md, docs/workflow.md and the spec for the task
-under review (docs/specs/phase-N.md, the linked docs/parking-lot.md entry, or Greg's request
-quoted in the PR). Then read the PR
-description and the diff (gh pr view <N>, gh pr diff <N>).
-
-Do not fix anything. Report only. Check:
-1. Scope: anything changed or added that the task does not ask for.
-2. Completeness: every item of the task, done / partly / missing, with file evidence.
-3. Frozen areas: any change under app/suppliers/, services/rfq.py, services/plc.py,
-   services/sourcing.py, or supplier ratings that the spec does not name.
-4. Engineering rules: go through each rule in docs/engineering-rules.md and name any breach,
-   especially logic reading a display name or free text, the AI writing computed values, and
-   non-deterministic or silently approximating engine code.
-5. Tests: any test deleted, skipped, loosened or made vacuous. Do the new tests prove the
-   behavior the PR says they do? Run the suites yourself and paste the real output.
-6. PR honesty: does each claim in the PR description match the diff? List mismatches.
-7. Uncovered decisions: choices in the code that the decisions log does not list, and any that
-   belong to level A in docs/workflow.md.
-8. Limits: CI, workflow or agent-rule files changed without Greg's request; new libraries without
-   an allowed license, an exact version, or a line in the summary.
-
-Output one page: a first line "Verdict: PASS / PASS WITH NOTES / FAIL (commit <sha>)", then
-findings ordered by severity, each with file and line. Say plainly what you could not verify.
-Post it as a PR comment yourself (gh pr comment <N> --body-file <file>), exactly as written.
+Run the suites yourself (cd backend && .venv/bin/pytest -q; cd frontend && npm run build when
+the PR touches the frontend) and paste the real last lines and exit codes. Post your report as a
+PR comment yourself, exactly as written: gh pr comment <N> --body-file <file>.
 ```
 
 ## Extra scrutiny for the foundation

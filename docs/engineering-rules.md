@@ -40,7 +40,8 @@ v0.3) and section 7.
 
 6. **Tests need no network or keys.** Recorded payloads and mock providers only. Live
    evaluations are a separate, optional job.
-   *Check:* CI has no secrets; a test that needs one is a bug.
+   *Check:* test jobs have no secrets; a test that needs one is a bug. Only the audit job
+   (`.github/workflows/audit.yml`) has a key, and it never checks out or runs PR code.
 
 7. **Model changes ship with defaults, a migration, and a `schema_version` bump.** Every new
    field on a stored model has a default value. `schema_version` is bumped. A migration step

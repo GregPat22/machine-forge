@@ -10,7 +10,8 @@
    Commit and push only to your own branch and open a draft PR; never push to `main` or merge,
    merging is Greg's job. Ask him first before rewriting pushed history, deleting branches, or
    editing CI, workflow or agent-rule files. A fresh agent audits every PR before it leaves
-   draft; end every task with the short PR summary.
+   draft, and the automatic audit in CI must pass before it can merge; end every task with the
+   short PR summary.
 
 ## Non-negotiable
 
@@ -28,7 +29,7 @@
 - No confidential data (machine specs, BOMs, CAD, prices from employers or customers) in the repo,
   tests, issues or commits. Public sources only, cited.
 - When Greg says we've made a decision, write a new short note in `docs/adr/` with the next
-  four-digit number (0020 is next): what we decided, the options, and why. Two short paragraphs.
+  four-digit number (0021 is next): what we decided, the options, and why. Two short paragraphs.
   Never edit old notes. If a decision replaces an older one, the new note says so.
 
 ## Run and test
