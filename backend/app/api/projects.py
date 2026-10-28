@@ -211,7 +211,7 @@ def revisions(project_id: str, request: Request) -> list[dict]:
 
 @router.post("/projects/{project_id}/revisions/{number}/restore")
 def restore(project_id: str, number: int, request: Request) -> dict:
-    return _project_out(_designer(request).restore(project_id, number))
+    return _project_out(Designer(request.app.state.mf.storage).restore(project_id, number))
 
 
 @router.get("/projects/{project_id}/spare-parts", response_model=list[SparePart])

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 
-from app.llm import LLMError, LLMProvider, Turn
+from app.llm import LLMError, LLMNotConfigured, LLMProvider, Turn
 from app.llm.base import ProgressFn
 from app.llm.prompts import SYSTEM_PROMPT, first_turn, refine_turn, repair_turn
 from app.models import MachineDesign, Project
@@ -34,7 +34,7 @@ class PatchRejected(LLMError):
 
 
 class Designer:
-    def __init__(self, storage: Storage, provider: LLMProvider, max_attempts: int = DEFAULT_MAX_REPAIR_ATTEMPTS):
+    def __init__(self, storage: Storage, provider: LLMProvider | None = None, max_attempts: int = DEFAULT_MAX_REPAIR_ATTEMPTS):
         if max_attempts < 1:
             raise ValueError("max_attempts must be at least 1")
         self.storage = storage
@@ -79,6 +79,8 @@ class Designer:
         self, design: MachineDesign, turns: list[Turn], on_progress: ProgressFn | None, first: bool = False
     ) -> tuple[str, MachineDesign]:
         """Ask for patches and apply them; on errors, send them back, up to `max_attempts` answers."""
+        if self.provider is None:
+            raise LLMNotConfigured("Configure an AI provider before creating or refining a design.")
         errors: list[PatchError] = []
         for attempt in range(1, self.max_attempts + 1):
             update = self.provider.structured(

@@ -95,6 +95,13 @@ def part_design(**overrides):
 
 
 
+def test_restore_does_not_require_a_configured_ai_provider():
+    storage = Storage(":memory:")
+    pid = storage.create_project("problem", "reply", demo_design())
+    storage.add_revision(pid, "next revision", "reply", demo_design())
+    c = TestClient(create_app(settings=Settings(llm_provider="openai"), storage=storage, connectors=[]))
+    response = c.post(f"/api/projects/{pid}/revisions/1/restore")
+    assert response.status_code == 200, (response.status_code, response.text)
 
 
 def test_stale_saves_are_atomic_across_storage_connections(tmp_path):
