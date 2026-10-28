@@ -1,8 +1,8 @@
 # Automatic audit of every non-draft pull request into main (ADR 0020, docs/workflow.md "Audit").
 #
-# pull_request_target runs this file from the PR's base branch. The jobs run only when that base
-# is main, so the workflow and .github/audit-prompt.md always come from main and a pull request
-# cannot change its own audit. No pull request code is checked out or run. A step without the
+# pull_request_target runs this file and checks out main (since December 2025 GitHub always uses
+# the default branch for it), so the workflow and .github/audit-prompt.md always come from main and
+# a pull request cannot change its own audit. The jobs run only for PRs into main. No pull request code is checked out or run. A step without the
 # API key saves the PR description, the diff of the audited commit and the test results as files;
 # the auditor has no commands at all and can only read files inside the main checkout, so the
 # key in its environment is out of its reach. Pull requests from forks are skipped, so the key
@@ -55,7 +55,7 @@ jobs:
     outputs:
       result: ${{ steps.claude.outputs.structured_output }}
     steps:
-      # No ref: the base branch, which the job condition requires to be main. Never the PR.
+      # No ref: main (the default branch). Never the PR.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -89,9 +89,14 @@ jobs:
           gh pr view "$PR" --repo "$GITHUB_REPOSITORY" --json title,body,author,headRefName \
             --template '# {{.title}}{{"\n\n"}}Author: {{.author.login}}. Branch: {{.headRefName}}.{{"\n\n"}}{{.body}}{{"\n"}}' \
             > .audit-input/description.md
+          # No diff, no audit: a failed or oversized diff fails the job, and so the check.
           gh api -H "Accept: application/vnd.github.diff" \
-            "repos/$GITHUB_REPOSITORY/compare/$BASE...$SHA" > .audit-input/diff.patch \
-            || echo "The diff could not be fetched (it may be too large)." > .audit-input/diff.patch
+            "repos/$GITHUB_REPOSITORY/compare/$BASE...$SHA" > .audit-input/diff.patch
+          size=$(wc -c < .audit-input/diff.patch)
+          if [ "$size" -gt 500000 ]; then
+            echo "The diff is $size bytes, over the 500 KB the auditor can read in full."
+            exit 1
+          fi
           gh api "repos/$GITHUB_REPOSITORY/commits/$SHA/check-runs?per_page=100" \
             --jq '.check_runs[] | select(.name == "backend" or .name == "frontend")
                   | "\(.name): \(.status) \(.conclusion // "")"' > .audit-input/checks.txt \
@@ -127,8 +132,9 @@ jobs:
           claude_args: >-
             --model claude-opus-5-5
             --max-turns 60
+            --tools "Read,Grep,Glob"
             --allowedTools "Read(./**)"
-            --disallowedTools "Bash,WebFetch,WebSearch,Read(./.git/**),Read(//proc/**)"
+            --disallowedTools "Bash,Monitor,WebFetch,WebSearch,Read(./.git/**),Read(//proc/**)"
             --json-schema '{"type":"object","properties":{"verdict":{"type":"string","enum":["PASS","PASS WITH NOTES","FAIL"]},"report":{"type":"string"}},"required":["verdict","report"],"additionalProperties":false}'
 
   publish:
