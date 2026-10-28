@@ -104,7 +104,7 @@ export default function DesignView({ design, onAsk }: { design: MachineDesign; o
       </div>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Kpi label="Throughput" value={design.throughput ?? "?"} />
+        <Kpi label="Throughput" value={design.target_rate_text ?? "?"} />
         <Kpi label="Stations" value={design.stations.length} />
         <Kpi label="Component lines" value={components.length} />
         <Kpi label="Wear parts" value={wear} />
