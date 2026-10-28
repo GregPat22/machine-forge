@@ -13,8 +13,8 @@ and decide shrinks to the merge, the questions only he can answer, and a short s
 Agents may:
 
 - Commit and push to their own branch, and open a **draft** PR when the work is ready for a look.
-- Mark a PR ready for review, only after an audit of its latest commit with a verdict of PASS or
-  PASS WITH NOTES (see "Audit").
+- Mark a PR ready for review, only after an audit with a verdict of PASS or PASS WITH NOTES, and
+  with no change after it beyond the small fixes "Audit" allows.
 
 Agents never:
 
@@ -72,7 +72,7 @@ Scope:
 4. **See it working.** Run the "how to see it" steps in the app with the mock provider and take
    screenshots (see "App checks").
 5. **Draft PR.** Commit, push, open a draft PR with the description below.
-6. **Audit.** Start a fresh auditor (see "Audit"). Fix what it finds, push, and audit again.
+6. **Audit.** Start a fresh auditor. Fix and audit again as "Audit" says, at most three rounds.
 7. **Ready.** Mark the PR ready and send Greg the summary block from the PR description, the
    audit verdict line and the screenshots.
 8. **Greg decides.** He reads the summary, looks at the screenshots or the app, and merges or
@@ -83,9 +83,14 @@ Scope:
 - The auditor is a separate agent with fresh context: a new subagent (never a fork) given only
   the audit prompt below, the PR number and the task (spec step, parking-lot entry or Greg's
   quoted request). The agent that wrote the code never audits its own work.
-- An audit runs before every move from draft to ready, on the PR's latest commit. No skipping.
-  A commit pushed after the audit needs a new audit. A FAIL keeps the PR in draft until a new
-  audit passes.
+- An audit runs before every move from draft to ready. No skipping. A FAIL keeps the PR in
+  draft: fix it, and a new full audit follows.
+- PASS WITH NOTES: fix the high and medium notes. If a fix is small and touches only what the
+  note named, no new audit; the PR says what changed for each note. Low notes and wording-only
+  notes are listed in the PR, not fixed, and need no new audit.
+- A new full audit only when a fix changes how something works, not just how it is worded.
+- At most three audit rounds per PR. After the third, stop and hand the PR to Greg with the open
+  notes listed. He decides.
 - The auditor posts its report as a PR comment itself. The comment is the record: nobody edits
   it. The implementing agent may answer in a separate comment.
 
