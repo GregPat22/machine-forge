@@ -112,8 +112,8 @@ An agent may add a library on its own branch when:
 - The license works with AGPL v3: MIT, BSD and Apache 2.0 are fine. Not allowed: "GPL v2 only"
   and source-available licenses such as SSPL or BSL. If unsure, ask Greg (level A).
 - The exact version is locked: frontend with `npm install --save-exact` (exact in
-  `package.json` and in `package-lock.json`), backend with an `==` pin in
-  `backend/pyproject.toml` (the backend has no lock file yet).
+  `package.json` and in `package-lock.json`), backend with `uv add` (exact version and checksums
+  in `backend/uv.lock`, ADR 0021).
 - The PR summary lists it with its license, last release date, roughly how widely it is used
   (weekly downloads or dependent projects) and how many other packages it pulls in.
 

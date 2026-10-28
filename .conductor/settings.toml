@@ -10,7 +10,8 @@ backend/.env
 [scripts]
 setup = """
 set -e
-(cd backend && python3 -m venv .venv && .venv/bin/pip install -q -e ".[dev]")
+command -v uv >/dev/null || { echo "uv is missing: brew install uv (https://docs.astral.sh/uv/)"; exit 1; }
+(cd backend && uv sync --locked --extra dev --quiet)
 (cd frontend && npm ci)
 """
 run_mode = "concurrent"
