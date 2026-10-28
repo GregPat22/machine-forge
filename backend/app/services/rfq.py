@@ -17,6 +17,7 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from app.models import MachineDesign, SparePart
 from app.services.sourcing import internal_offers
 from app.services.spare_parts import build_catalog
+from app.services.spreadsheet import append_text_row
 from app.storage import Storage
 
 RFQ_MARKER = "Quantity requested"  # the importer recognises RFQ sheets by this column
@@ -63,7 +64,7 @@ def build_rfq(design: MachineDesign, revision: int, storage: Storage, currency: 
         f"Quantities include recommended spare parts. Prices in {currency} unless you state another currency.",
         f'The "{OPEN_MARKET}" sheet lists parts without an assigned supplier: fill in your company name.',
     ]:
-        intro.append([line])
+        append_text_row(intro, [line])
     intro["A1"].font = Font(bold=True, size=14)
     intro.column_dimensions["A"].width = 110
 
@@ -77,7 +78,7 @@ def build_rfq(design: MachineDesign, revision: int, storage: Storage, currency: 
             cell.font = Font(bold=True)
             cell.alignment = Alignment(wrap_text=True, vertical="top")
         for part in groups[supplier]:
-            ws.append([
+            append_text_row(ws, [
                 part.item, "" if supplier == OPEN_MARKET else supplier, part.manufacturer or "",
                 part.part_number or "", _description(part), part.quantity_in_machine + part.recommended_spares,
                 None, currency, None, None, "",

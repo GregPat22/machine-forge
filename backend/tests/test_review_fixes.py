@@ -111,6 +111,11 @@ def test_currency_in_price_list_is_validated():
     assert response.status_code == 400, response.json()
 
 
+def test_spreadsheet_export_preserves_text_as_text():
+    design = part_design(name="=1+1")
+    workbook = load_workbook(io.BytesIO(build_rfq(design, 1, Storage(":memory:"), "EUR")))
+    cell = workbook["Open market"]["E2"]
+    assert cell.data_type == "s", (cell.value, cell.data_type, catalog_csv(build_catalog(design)))
 
 
 
@@ -210,6 +215,12 @@ def test_import_preserves_existing_placement_without_mutating_the_file():
     assert response.json()["design"]["stations"][0]["placement"] == placement
 
 
+@pytest.mark.parametrize("label", ["=1+1", "+1+1", "-1+1", "@SUM(1,1)", "\t=1+1"])
+def test_csv_exports_protect_formula_prefixes_and_keep_numeric_cells(label):
+    data = catalog_csv(build_catalog(part_design(name=label)))
+    row = list(csv.reader(io.StringIO(data)))[1]
+    assert row[1] == "'" + label
+    assert row[6] == "1"
 
 
 
