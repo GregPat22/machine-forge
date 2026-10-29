@@ -142,6 +142,25 @@ def test_invalid_value_names_the_value_and_the_limit() -> None:
     ]
 
 
+def test_jerk_must_be_positive() -> None:
+    for jerk, limit in ((0.0, "greater than 0"), (-1e6, "greater than 0"), (float("inf"), "a finite number")):
+        lift = Mechanism(id="m-lift", kind="linear", stroke=50, profile="s_curve", jerk=jerk)
+        assert _rejected(_base(), _op("set_mechanism", station_id="st-a", mechanism=lift)) == [
+            (0, "invalid_value", f"mechanism 'm-lift' jerk is {jerk!r}; it must be {limit}"),
+        ]
+        new = lift.model_copy(update={"id": "m-new"})
+        assert _rejected(_base(), _op("add_mechanism", station_id="st-b", mechanism=new)) == [
+            (0, "invalid_value", f"mechanism 'm-new' jerk is {jerk!r}; it must be {limit}"),
+        ]
+    nan = Mechanism(id="m-lift", kind="linear", profile="s_curve", jerk=float("nan"))
+    assert [code for _, code, _ in _rejected(_base(), _op("set_mechanism", station_id="st-a", mechanism=nan))] == [
+        "invalid_value",
+    ]
+    lift = Mechanism(id="m-lift", kind="linear", stroke=50, profile="s_curve", jerk=1e7)
+    design = _applied(_base(), _op("set_mechanism", station_id="st-a", mechanism=lift))
+    assert design.stations[0].mechanisms == [lift]
+
+
 def test_computed_fields_cannot_be_set_by_patch() -> None:
     """Rule 3: derived values, coordinates, bookkeeping and motion durations are written by code."""
     for name in ("sequence", "cycle_time_s", "placement", "schema_version", "footprint"):

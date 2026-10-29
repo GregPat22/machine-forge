@@ -148,7 +148,7 @@ def test_a_station_outside_a_design_has_no_derived_sequence() -> None:
 
 def test_schema_version_and_placement_are_not_written_by_the_ai() -> None:
     design = _design([], [])
-    assert design.schema_version == 2 and design.model_dump()["schema_version"] == 2
+    assert design.schema_version == 3 and design.model_dump()["schema_version"] == 3
     schema = json.dumps(strict_schema(PatchUpdate))
     assert '"schema_version"' not in schema
     assert '"placement"' not in schema and '"x_mm"' not in schema  # coordinates come from the layout (rule 3)

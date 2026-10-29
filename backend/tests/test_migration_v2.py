@@ -35,13 +35,13 @@ def test_fixtures_exist() -> None:
 @pytest.mark.parametrize("path", DESIGNS, ids=lambda p: p.stem)
 def test_v1_fixture_revisions_migrate_to_v2(path: Path, tmp_path: Path) -> None:
     design = migrate_design(json.loads(path.read_text()), from_version=1)
-    assert isinstance(design, MachineDesign) and design.schema_version == 2
+    assert isinstance(design, MachineDesign) and design.schema_version == 3
     MachineDesign.model_validate_json(design.model_dump_json())  # valid as stored v2
 
     db = tmp_path / "v03.db"
     expected = _write_v03_database(db)
     project = Storage(db).get_project("abc123")
-    assert project is not None and project.design == expected and project.design.schema_version == 2
+    assert project is not None and project.design == expected and project.design.schema_version == 3
 
 
 @pytest.mark.parametrize("path", DESIGNS, ids=lambda p: p.stem)
@@ -138,7 +138,7 @@ def test_old_database_opens_after_phase_1(tmp_path: Path) -> None:
 
     number = storage.add_revision(blister_id, "restore 1", "ok", revisions[0].design)
     new = storage.get_revision(blister_id, number)
-    assert new is not None and new.schema_version == DESIGN_SCHEMA_VERSION == 2
+    assert new is not None and new.schema_version == DESIGN_SCHEMA_VERSION == 3
     assert new.design == revisions[0].design
     conn = sqlite3.connect(db)
     after = conn.execute("SELECT rowid, design FROM revisions ORDER BY rowid").fetchall()

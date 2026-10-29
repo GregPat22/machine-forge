@@ -5,10 +5,10 @@
 The design models are also sent to the LLM as a JSON schema, so they avoid constructs
 structured outputs can't express (free-form dicts, numeric bounds, recursion).
 
-Model v2 (schema_version 2, Phase 1). v1 designs are migrated on read, see
-`app/migrations/design_v1.py`. `Station.sequence` and `Station.cycle_time_s` are read-only
-values derived from the process graph and the steps (ADR 0012): never stored, never in the
-schema, never set by the AI.
+Model v2 (Phase 1), schema_version 3 since Phase 2 added the motion profile fields (ADR 0026).
+Older designs are migrated on read, see `app/migrations/design_v1.py`. `Station.sequence` and
+`Station.cycle_time_s` are read-only values derived from the process graph and the steps
+(ADR 0012): never stored, never in the schema, never set by the AI.
 """
 
 from __future__ import annotations
@@ -61,6 +61,7 @@ FLOW_KINDS = frozenset({"process", "transport", "inspection"})
 ComponentRole = Literal["actuator", "sensor", "drive", "controller", "tooling", "structure", "consumable"]
 TransportKind = Literal["belt", "indexing", "rotary", "pick_place", "gravity"]
 MechanismKind = Literal["linear", "rotary"]
+MotionProfile = Literal["trapezoidal", "s_curve"]
 StepKind = Literal["motion", "fixed_duration"]
 ProductOrientation = Literal["unspecified", "upright", "lying", "on_edge"]
 
@@ -119,13 +120,24 @@ class Parameter(BaseModel):
 
 
 class Mechanism(BaseModel):
-    """A motion axis of a station. Units: mm for linear, degrees for rotary."""
+    """A motion axis of a station. Units: mm for linear, degrees for rotary.
+
+    Every move is rest to rest over one full stroke, with deceleration equal to acceleration.
+    """
 
     id: str = Field(description="Stable slug, unique in the station, e.g. 'm-lift'")
     kind: MechanismKind
     stroke: float | None = Field(default=None, description="mm (linear) or deg (rotary)")
     max_speed: float | None = Field(default=None, description="mm/s or deg/s")
-    acceleration: float | None = Field(default=None, description="mm/s2 or deg/s2")
+    acceleration: float | None = Field(
+        default=None, description="mm/s2 or deg/s2; deceleration is the same (rest-to-rest moves)"
+    )
+    profile: MotionProfile = Field(
+        default="trapezoidal",
+        description="Velocity profile of a rest-to-rest move: 'trapezoidal' (limited speed and acceleration) "
+        "or 's_curve' (also limited jerk, needs jerk)",
+    )
+    jerk: float | None = Field(default=None, description="mm/s3 or deg/s3; used only by the s_curve profile")
     cam_profile: str | None = Field(default=None, description="Id of a cam profile, unused for now")
     dwell_s: float | None = None
 
@@ -264,7 +276,7 @@ class MachineDesign(BaseModel):
     assumptions: list[str] = Field(default_factory=list)
     open_questions: list[str] = Field(default_factory=list)
     # Bookkeeping written by code, not by the AI: kept out of the JSON schema.
-    schema_version: SkipJsonSchema[Literal[2]] = 2
+    schema_version: SkipJsonSchema[Literal[3]] = 3
 
     @model_validator(mode="after")
     def _link_stations(self) -> MachineDesign:

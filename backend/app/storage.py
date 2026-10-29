@@ -24,7 +24,8 @@ from app.models import (
 
 # Every table carries a workspace_id (one default workspace until users exist, see ADR 0008).
 # Stored designs carry the schema version of MachineDesign they were written with (1 = v0.3 and
-# Phase 0, 2 = model v2). Older designs are migrated on read; their rows are never rewritten.
+# Phase 0, 2 = model v2, 3 = model v2 with motion profiles). Older designs are migrated on read;
+# their rows are never rewritten.
 DEFAULT_WORKSPACE = "default"
 DESIGN_SCHEMA_VERSION = CURRENT_VERSION
 

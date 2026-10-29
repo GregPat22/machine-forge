@@ -20,9 +20,10 @@ frontend (React + Vite)  ──/api──>  backend (FastAPI)
 
 ## The machine model is the source of truth
 
-`backend/app/models.py` → `MachineDesign` (schema version 2). The AI never edits text documents
-or files, and since Phase 1 it no longer rewrites the design either: it answers with a list of
-patch operations (see "The prompting loop"). Everything else is derived from the design in code:
+`backend/app/models.py` → `MachineDesign` (schema version 3: model v2 with the motion profile
+fields of ADR 0026). The AI never edits text documents or files, and since Phase 1 it no longer
+rewrites the design either: it answers with a list of patch operations (see "The prompting
+loop"). Everything else is derived from the design in code:
 
 - the spare-parts catalog (`services/spare_parts.py`), where identical part numbers across stations
   are merged;
@@ -40,8 +41,9 @@ What the model holds (v2):
   `target_rate_text`) is kept for display and never parsed.
 - **Process graph**: `transports` are the edges between stations (belt, indexing, rotary,
   pick-and-place, gravity), with length, speed or index time, buffer and an optional reject branch.
-- **Station**: envelope, `parameters` (name/value/unit list), `mechanisms` (linear or rotary axes),
-  ordered `steps` (a motion of an axis or a fixed duration), `target_cycle_time_s`, components.
+- **Station**: envelope, `parameters` (name/value/unit list), `mechanisms` (linear or rotary axes,
+  each with a trapezoidal or S-curve motion profile), ordered `steps` (a motion of an axis or a
+  fixed duration), `target_cycle_time_s`, components.
 - **Component**: structured `role`, `signals` (DI/DO/AI/AO/axes/fieldbus counts), `motion` link to
   a mechanism.
 - **Derived values** (ADR 0012): `Station.sequence` (position along the process graph) and
@@ -54,8 +56,9 @@ stable across revisions (patches refer to them), so revisions can be compared it
 
 Old revisions are migrated on read (`migrations/design_v1.py`, `migrate_design`): `sequence`
 becomes a chain of belt transports, `cycle_time_s` one fixed-duration step, each `category` a
-`role`; nothing unknown is guessed. A stored row keeps its `schema_version` until a new revision
-is saved, which is always version 2.
+`role`; nothing unknown is guessed. Version 2 designs get the default motion profile (trapezoidal,
+no jerk) and nothing else changes. A stored row keeps its `schema_version` until a new revision is
+saved, which is always the current version (3).
 
 The model avoids JSON-schema features that strict structured-output modes reject (free-form maps,
 numeric bounds, recursion). Specs and parameters are lists of `{name, value}` pairs for that
