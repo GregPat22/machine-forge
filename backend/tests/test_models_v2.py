@@ -9,6 +9,8 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
+from app.engines.timing import design_timing
+from app.llm.mock import SCENARIOS, demo_design
 from app.models import MachineDesign, Product, Station, Step, Transport
 from app.schema import strict_schema
 from app.services.patch import PatchUpdate
@@ -70,7 +72,7 @@ def test_a_cyclic_process_graph_is_rejected() -> None:
         _design([_station("a"), _station("b")], [_belt("a", "b"), _belt("b", "a")])
 
 
-def test_cycle_time_s_is_derived_from_fixed_steps_and_null_with_motion_or_parallel_steps() -> None:
+def test_cycle_time_s_comes_from_the_timing_engine() -> None:
     fixed = _station("a", steps=[_fixed("s2", 2, 0.7), _fixed("s1", 1, 0.5)])
     motion = _station("b", steps=[_fixed("s1", 1, 0.5),
                                   Step(id="s2", order=2, kind="motion", mechanism_id="m1")])
@@ -80,10 +82,21 @@ def test_cycle_time_s_is_derived_from_fixed_steps_and_null_with_motion_or_parall
     _design([fixed, motion, parallel, unknown, empty], [])
 
     assert fixed.cycle_time_s == pytest.approx(1.2)
-    assert motion.cycle_time_s is None  # motion steps have no duration before the Phase 2 timing engine
-    assert parallel.cycle_time_s is None
+    assert motion.cycle_time_s is None  # its mechanism m1 does not exist: not computable
+    assert parallel.cycle_time_s == pytest.approx(0.5)  # one parallel block: its longest member (Phase 2)
     assert unknown.cycle_time_s is None
     assert empty.cycle_time_s is None
+
+
+
+def test_cycle_time_s_equals_the_timing_engine_for_every_demo_station() -> None:
+    for scenario in SCENARIOS:
+        design = demo_design(scenario)
+        result = design_timing(design)
+        assert [t.station_id for t in result.stations] == [s.id for s in design.stations]
+        for station, timing in zip(design.stations, result.stations, strict=True):
+            assert station.cycle_time_s == timing.cycle_time_s, (scenario, station.id)
+        assert any(t.cycle_time_s is not None for t in result.stations), scenario
 
 
 def test_derived_values_are_not_stored_dumped_or_in_the_ai_schema(storage: Storage) -> None:

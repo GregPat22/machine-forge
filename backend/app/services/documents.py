@@ -143,7 +143,7 @@ def safety_function_rows(design: MachineDesign) -> list[list[str]]:
 def cycle_check(design: MachineDesign) -> list[str]:
     timed = [s for s in design.stations if s.sequence > 0 and s.cycle_time_s]
     if not timed:
-        return ["No cycle times in the design yet: ask the AI to estimate them."]
+        return ["No computable cycle times yet: complete the mechanisms and steps in the model editor."]
     slowest = max(timed, key=lambda s: s.cycle_time_s or 0)
     cycles_per_min = 60 / (slowest.cycle_time_s or 1)
     lines = [f"Slowest station: {slowest.name} at {slowest.cycle_time_s:g} s/cycle, "

@@ -7,8 +7,8 @@ structured outputs can't express (free-form dicts, numeric bounds, recursion).
 
 Model v2 (Phase 1), schema_version 3 since Phase 2 added the motion profile fields (ADR 0026).
 Older designs are migrated on read, see `app/migrations/design_v1.py`. `Station.sequence` and
-`Station.cycle_time_s` are read-only values derived from the process graph and the steps
-(ADR 0012): never stored, never in the schema, never set by the AI.
+`Station.cycle_time_s` are read-only values derived from the process graph and from the steps by
+the timing engine (ADR 0012, ADR 0027): never stored, never in the schema, never set by the AI.
 """
 
 from __future__ import annotations
@@ -242,16 +242,10 @@ class Station(BaseModel):
 
     @property
     def cycle_time_s(self) -> float | None:
-        """Sum of the steps when every step is fixed-duration, known and not parallel; else null.
+        """Cycle time from the timing engine (`app.engines.timing`, ADR 0027); null when not computable."""
+        from app.engines.timing import station_timing  # lazy: the engine imports this module
 
-        Motion steps get a duration from the Phase 2 timing engine; until then the cycle is unknown.
-        """
-        steps = sorted(self.steps, key=lambda s: s.order)
-        if not steps or any(
-            s.kind != "fixed_duration" or s.duration_s is None or s.parallel_group is not None for s in steps
-        ):
-            return None
-        return sum(s.duration_s for s in steps if s.duration_s is not None)
+        return station_timing(self).cycle_time_s
 
 
 class MachineDesign(BaseModel):
