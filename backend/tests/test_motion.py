@@ -93,8 +93,36 @@ def test_s_curve_reduces_to_trapezoidal_as_jerk_grows() -> None:
         assert gaps[-1] < 1e-6
 
 
-# test_s_curve_matches_textbook_worked_example: left out. The worked examples of section 3.4 could not
-# be read for this step (only the table of contents was available); see the step 2 report.
+def test_trapezoidal_matches_textbook_worked_example() -> None:
+    """Biagiotti & Melchiorri (2008), section 3.2, Example 3.3, p. 67: three synchronized actuators
+    with "vmax = 20 and amax = 20"; the largest displacement, actuator a, "q0,a = 0, q1,a = 50", sets
+    the duration, printed "Ta = 1, T = 3.5". Read on 2026-10-29 as scanned text of pp. 66-67 in the
+    Google Books preview (https://books.google.com/books?id=FiX1ceRT5zoC&pg=PA67, search "Ta = 1"
+    and "Three synchronized"); subscripts are restored where the scan drops them.
+    """
+    p = trapezoidal(50.0, 20.0, 20.0)
+    assert (p.accel_s, p.duration_s) == pytest.approx((1.0, 3.5), abs=TOL)
+
+
+def test_s_curve_matches_textbook_worked_example() -> None:
+    """Biagiotti & Melchiorri (2008), section 3.4.3, p. 93, the example of Fig. 3.19 (null initial
+    and final speed, neither the maximum speed nor the maximum acceleration reached). Read on
+    2026-10-29 as scanned text of p. 93 in the Google Books preview
+    (https://books.google.com/books?id=FiX1ceRT5zoC&pg=PA93, search "computed in closed form"); the
+    page image itself could not be opened. Printed, with the symbols the scan drops restored: "The
+    boundary conditions are q0 = 0, q1 = 10, v0 = 0, v1 = 0, while the constraints are vmax = 10,
+    amax = 20, jmax = 30. The resulting time intervals are Tj = 0.5503, Ta = 1.1006, Tv = 0."
+
+    The book prints four decimals, so the tolerance is half a unit of the last one. The same
+    sentence goes on "vlim = 8.6329 ... alim,a = 6.9641": these are not asserted, because they do
+    not fit the printed times. With no cruise phase the distance is vlim·Ta (the speed profile is
+    symmetric), and 8.6329 · 1.1006 = 9.50, not q1 - q0 = 10; the book's own p. 93 formula
+    alim = jmax·Tj gives 30 · 0.5503 = 16.5, not 6.9641. P. 84 prints the same sentence, "Tj1 =
+    0.2321, Tj2 = 0.2321 ... vlim = 8.6329 ... alim,a = 6.9641 and alim,d = -6.9641", for another
+    example (30 · 0.2321 = 6.96), so p. 93 repeats it in error.
+    """
+    p = s_curve(10.0, 10.0, 20.0, 30.0)
+    assert (p.jerk_s, p.accel_s, p.cruise_s, p.decel_s) == pytest.approx((0.5503, 1.1006, 0.0, 1.1006), abs=5e-5)
 
 
 def test_rotary_axis_uses_degrees_unchanged() -> None:
