@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import re
 from pathlib import Path
 
@@ -72,3 +73,41 @@ def test_no_logic_branches_on_display_names() -> None:
     assert offenders == [], "logic reads a display name or free text (rule 1):\n" + "\n".join(offenders)
     stale = [entry for i, entry in enumerate(_NAME_LOGIC_ALLOWED) if i not in used]
     assert stale == [], f"allowlist entries that match nothing any more: {stale}"
+
+
+ENGINES = BACKEND_APP / "engines"
+_IO_MODULES = ("sqlite3", "httpx", "yaml", "pathlib", "os", "app.storage", "app.llm")
+
+
+def _imported_modules(tree: ast.AST) -> list[str]:
+    modules = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            modules.extend(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+            modules.append(node.module)
+            modules.extend(f"{node.module}.{alias.name}" for alias in node.names)
+    return modules
+
+
+def test_engines_do_no_io() -> None:
+    """Rule 5: engines are pure. No I/O import, no open(), no `except ...: pass` under app/engines/."""
+    sources = sorted(ENGINES.rglob("*.py"))
+    assert any(p.name != "__init__.py" for p in sources), "app/engines/ has no engine to check"
+    offenders = []
+    for source in sources:
+        rel = source.relative_to(REPO)
+        tree = ast.parse(source.read_text(encoding="utf-8"), filename=str(rel))
+        for module in _imported_modules(tree):
+            if any(module == m or module.startswith(m + ".") for m in _IO_MODULES):
+                offenders.append(f"{rel}: imports {module}")
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call):
+                func = node.func
+                if (isinstance(func, ast.Name) and func.id == "open") or (
+                    isinstance(func, ast.Attribute) and func.attr == "open"
+                ):
+                    offenders.append(f"{rel}:{node.lineno}: calls open(")
+            if isinstance(node, ast.ExceptHandler) and all(isinstance(s, ast.Pass) for s in node.body):
+                offenders.append(f"{rel}:{node.lineno}: except ...: pass")
+    assert offenders == [], "engines must do no I/O (rule 5):\n" + "\n".join(offenders)
