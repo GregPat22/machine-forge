@@ -1,0 +1,164 @@
+# Plausibility bounds for the timing engine (Phase 2, docs/specs/phase-2.md section E).
+#
+# Each row says: a value of `field` on a mechanism driven by a component of `component_category`
+# (with `mechanism_kind`), or on a transport of `transport_kind`, is expected between `min` and
+# `max`, in the model's unit `unit`. A value outside an active row gives a warning; the design is
+# never corrected. A row is active only with `source_url`, `source_title`, and `min` or `max`.
+#
+# Every number comes from a manufacturer's own public page or catalog. `as_printed` is the value
+# and unit exactly as the source prints them; `min` and `max` are that value converted to the
+# model's unit (1 m/s = 1000 mm/s, 1 m/s2 = 1000 mm/s2, 1 rpm = 6 deg/s). `source_page` is the
+# page number printed on the page. `accessed` is the date the source was read.
+#
+# Jerk (spec row 6): no manufacturer's page read for this table states a maximum jerk for an axis,
+# so there is no jerk row.
+
+- id: pneumatic-cylinder-linear-max-speed
+  applies_to:
+    component_category: pneumatic_actuator
+    transport_kind: null
+    mechanism_kind: linear
+  field: max_speed
+  unit: mm/s
+  min: 50
+  max: 1000
+  as_printed: "Operating piston speed 50 to 1000 mm/s (bore ø32 to ø100); 50 to 700 mm/s (bore ø125)"
+  source_title: "SMC, ISO Cylinder ISO Standard (15552) CP96 Series, Specifications"
+  source_url: https://ca01.smcworld.com/catalog/ISO/mpv/p-e10-2-isocy-p126-156/data/p-e10-2-isocy-p126-156.pdf
+  source_page: "130"
+  accessed: 2026-10-29
+
+- id: pneumatic-cylinder-linear-acceleration
+  applies_to:
+    component_category: pneumatic_actuator
+    transport_kind: null
+    mechanism_kind: linear
+  field: acceleration
+  unit: mm/s2
+  min: null       # TODO(source): no pneumatic catalog read (SMC CP96, Festo DSBC, DFM, ADN) prints an acceleration
+  max: null       # TODO(source)
+  as_printed: null
+  source_title: null
+  source_url: null
+  source_page: null
+  accessed: null
+
+- id: servo-linear-axis-max-speed
+  applies_to:
+    component_category: servo_motor
+    transport_kind: null
+    mechanism_kind: linear
+  field: max_speed
+  unit: mm/s
+  min: null
+  max: 10000
+  as_printed: "Toothed belt axes: Speeds of up to 10 m/s (Ball screw axes: Speeds of up to 2 m/s)"
+  source_title: "Festo, Toothed belt axes EGC-HD-TB, with heavy-duty guide, Selection aid: Overview of toothed belt and ball screw axes"
+  source_url: https://ftp.festo.com/public/PNEUMATIC/SOFTWARE_SERVICE/Documentation/2026/EN_US/EGC_HD_TB_ENUS.PDF
+  source_page: "2"
+  accessed: 2026-10-29
+
+- id: servo-linear-axis-acceleration
+  applies_to:
+    component_category: servo_motor
+    transport_kind: null
+    mechanism_kind: linear
+  field: acceleration
+  unit: mm/s2
+  min: null
+  max: 50000
+  as_printed: "Toothed belt axes: Acceleration of up to 50 m/s2 (Ball screw axes: Acceleration of up to 20 m/s2)"
+  source_title: "Festo, Toothed belt axes EGC-HD-TB, with heavy-duty guide, Selection aid: Overview of toothed belt and ball screw axes"
+  source_url: https://ftp.festo.com/public/PNEUMATIC/SOFTWARE_SERVICE/Documentation/2026/EN_US/EGC_HD_TB_ENUS.PDF
+  source_page: "2"
+  accessed: 2026-10-29
+
+- id: servo-rotary-axis-max-speed
+  applies_to:
+    component_category: servo_motor
+    transport_kind: null
+    mechanism_kind: rotary
+  field: max_speed
+  unit: deg/s
+  min: null
+  max: 9600
+  as_printed: "Max. rotational speed [1/min] 1600.0"
+  source_title: "SCHUNK, Electric rotary module ERS 170-560-40-B-N-I (ID 310182, torque motor), product page, Technical details"
+  source_url: https://schunk.com/us/en/p/000000000000310182
+  source_page: "web page, no page number"
+  accessed: 2026-10-29
+
+- id: servo-rotary-axis-acceleration
+  applies_to:
+    component_category: servo_motor
+    transport_kind: null
+    mechanism_kind: rotary
+  field: acceleration
+  unit: deg/s2
+  min: null       # TODO(source): Festo ERMB, SCHUNK ERS and the HIWIN torque motor rotary table catalog print no angular acceleration
+  max: null       # TODO(source)
+  as_printed: null
+  source_title: null
+  source_url: null
+  source_page: null
+  accessed: null
+
+- id: linear-motion-axis-max-speed
+  applies_to:
+    component_category: linear_motion
+    transport_kind: null
+    mechanism_kind: linear
+  field: max_speed
+  unit: mm/s
+  min: null
+  max: 10000
+  as_printed: "Toothed belt axes: Speeds of up to 10 m/s (Ball screw axes: Speeds of up to 2 m/s)"
+  source_title: "Festo, Toothed belt axes EGC-HD-TB, with heavy-duty guide, Selection aid: Overview of toothed belt and ball screw axes"
+  source_url: https://ftp.festo.com/public/PNEUMATIC/SOFTWARE_SERVICE/Documentation/2026/EN_US/EGC_HD_TB_ENUS.PDF
+  source_page: "2"
+  accessed: 2026-10-29
+
+- id: linear-motion-axis-acceleration
+  applies_to:
+    component_category: linear_motion
+    transport_kind: null
+    mechanism_kind: linear
+  field: acceleration
+  unit: mm/s2
+  min: null
+  max: 50000
+  as_printed: "Toothed belt axes: Acceleration of up to 50 m/s2 (Ball screw axes: Acceleration of up to 20 m/s2)"
+  source_title: "Festo, Toothed belt axes EGC-HD-TB, with heavy-duty guide, Selection aid: Overview of toothed belt and ball screw axes"
+  source_url: https://ftp.festo.com/public/PNEUMATIC/SOFTWARE_SERVICE/Documentation/2026/EN_US/EGC_HD_TB_ENUS.PDF
+  source_page: "2"
+  accessed: 2026-10-29
+
+- id: indexing-transport-index-time
+  applies_to:
+    component_category: null
+    transport_kind: indexing
+    mechanism_kind: null
+  field: index_time_s
+  unit: s
+  min: 0.19
+  max: 12.33
+  as_printed: "ti = cycle time (sec.): shortest 0.19 (TC 150T, 16, 20 and 24 indexings, speed level c, p. 9); longest 12.33 (TC 1000T, 2 and 3 indexings, speed level j, p. 19)"
+  source_title: "WEISS GmbH, Rotary indexing tables TC, product catalog 07/2023, Load table 50 Hz"
+  source_url: https://www.weiss-world.com/PDFs/en/product%20catalog/WEISS_TC_ProductCatalog_en_26-03-11.pdf
+  source_page: "9, 19"
+  accessed: 2026-10-29
+
+- id: rotary-transport-index-time
+  applies_to:
+    component_category: null
+    transport_kind: rotary
+    mechanism_kind: null
+  field: index_time_s
+  unit: s
+  min: 0.19
+  max: 12.33
+  as_printed: "ti = cycle time (sec.): shortest 0.19 (TC 150T, 16, 20 and 24 indexings, speed level c, p. 9); longest 12.33 (TC 1000T, 2 and 3 indexings, speed level j, p. 19)"
+  source_title: "WEISS GmbH, Rotary indexing tables TC, product catalog 07/2023, Load table 50 Hz"
+  source_url: https://www.weiss-world.com/PDFs/en/product%20catalog/WEISS_TC_ProductCatalog_en_26-03-11.pdf
+  source_page: "9, 19"
+  accessed: 2026-10-29

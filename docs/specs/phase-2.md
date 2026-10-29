@@ -225,6 +225,8 @@ Result models (`StationTiming`, `TimingResult`, `TimingWarning`, reason and warn
   `s_curve` profile, the index angle 360°/stations, then two process steps of different length in
   one parallel group during the dwell), **sealing station** (a linear lift, a heat-sealing dwell as
   a fixed step, the lift back).
+  **Decided 2026-10-29 (ADR 0030):** no manufacturer's page read gives a jerk, so the indexing table has 36
+  stations (10°) and takes its axis limits from the textbook's printed S-curve example (p. 93).
 - **The spreadsheet is the data** (Greg, 2026-10-29): `timing_stations.xlsx`, one sheet per
   station plus a `Sources` sheet. A station sheet has four tables: `Mechanisms` (id, kind,
   profile, stroke, max speed, acceleration, jerk, dwell, unit, source id per number), `Steps` (id,
@@ -303,6 +305,9 @@ Result models (`StationTiming`, `TimingResult`, `TimingWarning`, reason and warn
   sources of section E rows 1 and 2. Pneumatic catalogs often give a speed range but no
   acceleration. If no public source gives one, step 4 stops and reports; no value is invented, and
   Greg decides then (for example: model those cylinders as fixed steps with a cited stroke time).
+  **Decided 2026-10-29 (ADR 0029):** no manufacturer's page read gives one; each pneumatic cylinder stroke is a
+  fixed-duration step whose time is read from a manufacturer's full-stroke-time chart (SMC "Full
+  Stroke Time & Stroke End Velocity"), with chart, page, load ratio and conditions cited.
 - `tests/test_migration_v2.py::test_mock_output_matches_its_v1_fixture` and
   `test_mock_refinements_match_their_v1_fixtures` get one listed exception: the exported
   `cycle_time_s` of the blister stations (it now comes from the engine). Every other field is still
@@ -515,6 +520,9 @@ spreadsheet for the golden data.
    cushioning). If no public source gives a pneumatic acceleration, the step stops and reports
    (section H). A mechanical cam indexer is a fixed-duration step with its catalog index time,
    since cam laws are out of scope.
+   **Follow-up (2026-10-29):** no manufacturer's page read gives a pneumatic acceleration, so the cylinder
+   part is replaced by ADR 0029 (fixed-duration step with a charted stroke time; see section H).
+   ADR 0027 records only the cam indexer part of this answer.
 5. **`plc.py` label** ("Target cycle time" printing the computed cycle).
    **Answer:** the frozen file is not touched; a parking-lot entry records it (section D).
 6. **Mock numbers and the brush feeder.**
