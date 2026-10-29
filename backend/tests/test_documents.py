@@ -5,7 +5,7 @@ import io
 from docx import Document
 
 from app.llm.mock import demo_design
-from app.models import Component, MachineDesign, Product, Signals, Spec, Station, Step
+from app.models import Component, MachineDesign, Mechanism, Product, Signals, Spec, Station, Step
 from app.services.documents import build_document, cycle_check, io_list, safety_function_rows, to_docx, to_markdown
 
 
@@ -56,6 +56,16 @@ def test_cycle_check_shows_the_stated_rate_without_parsing_it() -> None:
     lines = cycle_check(_small_design())
     assert "60.0 cycles/min" in lines[0]
     assert lines[1] == "Required throughput as stated: 120 parts/min (free text, not compared with the cycle time)."
+
+
+
+def test_cycle_check_without_computable_times_points_to_the_model() -> None:
+    # A motion step whose axis has no speed or acceleration yet: the cycle is not computable.
+    station = Station(id="s1", name="Press", function="f", mechanisms=[Mechanism(id="m", kind="linear", stroke=50.0)],
+                      steps=[Step(id="t", order=1, kind="motion", mechanism_id="m")])
+    design = MachineDesign(name="Test", machine_type="t", summary="s", product=Product(), stations=[station])
+    assert cycle_check(design) == [
+        "No computable cycle times yet: complete the mechanisms and steps in the model editor."]
 
 
 def test_document_sections_and_exports() -> None:
