@@ -2,9 +2,10 @@
 
 ```
 frontend (React + Vite)  ──/api──>  backend (FastAPI)
-                                      ├── Designer      prompting loop, revisions
-                                      │     └── LLMProvider  anthropic | openai_compatible | mock
-                                      ├── diff          revision a vs b -> stations/components changed
+                                      ├── Designer      prompting loop, repair loop, model editor, revisions
+                                      │     ├── LLMProvider  anthropic | openai | gemini | openai_compatible | mock
+                                      │     └── patch     patch operations -> checked new design, or errors
+                                      ├── diff          revision a vs b -> stations, components, transports, steps changed
                                       ├── layout        design -> layout (boxes, flow line) -> drawing (SVG/DXF)
                                       ├── documents     design -> technical description (+ .docx / .md, company template)
                                       ├── io_points     design -> estimated I/O points (documents, PLC)
@@ -13,14 +14,15 @@ frontend (React + Vite)  ──/api──>  backend (FastAPI)
                                       ├── spare_parts   design -> aggregated catalog (BOM)
                                       ├── Sourcing      catalog x (your price list + connectors) -> comparison
                                       │     └── SupplierConnector  mouser | nexar | ...
+                                      ├── project_json  project <-> versioned JSON file (export/import)
                                       └── Storage       SQLite: projects, revisions, chat, price list, offer cache
 ```
 
 ## The machine model is the source of truth
 
-`backend/app/models.py` → `MachineDesign`. The AI never edits text documents or files. It returns
-a complete, schema-validated `MachineDesign` on every turn (`DesignUpdate` = reply + design).
-Everything else is derived from it in code:
+`backend/app/models.py` → `MachineDesign` (schema version 2). The AI never edits text documents
+or files, and since Phase 1 it no longer rewrites the design either: it answers with a list of
+patch operations (see "The prompting loop"). Everything else is derived from the design in code:
 
 - the spare-parts catalog (`services/spare_parts.py`), where identical part numbers across stations
   are merged;
@@ -29,16 +31,36 @@ Everything else is derived from it in code:
   style; positions are computed in code, since language models are unreliable with coordinates;
 - the technical documents (`services/documents.py`): rule-based, so they stay consistent with the
   design and never claim compliance;
-- later, PLC and CAD (see [output-options.md](output-options.md)).
+- the I/O list (`services/io_points.py`) and the PLC skeleton (`services/plc.py`), from each
+  component's `signals`, never from its name (ADR 0015).
 
-Because each turn returns the full design, every revision is a complete snapshot: you can view,
-diff or restore any of them. Component and station ids are kept stable across revisions (the
-system prompt requires it), so revisions can be compared item by item.
+What the model holds (v2):
+
+- **Product**: dimensions, mass, orientation, lanes, pitch. The v1 text (`description`,
+  `target_rate_text`) is kept for display and never parsed.
+- **Process graph**: `transports` are the edges between stations (belt, indexing, rotary,
+  pick-and-place, gravity), with length, speed or index time, buffer and an optional reject branch.
+- **Station**: envelope, `parameters` (name/value/unit list), `mechanisms` (linear or rotary axes),
+  ordered `steps` (a motion of an axis or a fixed duration), `target_cycle_time_s`, components.
+- **Component**: structured `role`, `signals` (DI/DO/AI/AO/axes/fieldbus counts), `motion` link to
+  a mechanism.
+- **Derived values** (ADR 0012): `Station.sequence` (position along the process graph) and
+  `Station.cycle_time_s` (sum of fixed-duration steps, null when a step is a motion or runs in
+  parallel) are plain Python properties. They are not stored, not sent to the AI and cannot be
+  set by a patch; current readers, including the frozen `plc.py`, read them unchanged.
+
+Every revision is a complete snapshot: you can view, diff or restore any of them. Ids are kept
+stable across revisions (patches refer to them), so revisions can be compared item by item.
+
+Old revisions are migrated on read (`migrations/design_v1.py`, `migrate_design`): `sequence`
+becomes a chain of belt transports, `cycle_time_s` one fixed-duration step, each `category` a
+`role`; nothing unknown is guessed. A stored row keeps its `schema_version` until a new revision
+is saved, which is always version 2.
 
 The model avoids JSON-schema features that strict structured-output modes reject (free-form maps,
-numeric bounds, recursion). Specs are a list of `{name, value}` pairs for that reason.
-`app/schema.py` tightens the Pydantic schema (all properties required, `additionalProperties:
-false`) so the same schema works with Claude structured outputs and OpenAI-style strict mode.
+numeric bounds, recursion). Specs and parameters are lists of `{name, value}` pairs for that
+reason, and bounds are checked in code by the patch validator. `app/schema.py` tightens the
+Pydantic schema (all properties required, `additionalProperties: false`).
 
 ## Live progress
 
@@ -64,22 +86,47 @@ reopens them. See `docs/PLAN.md` section 2.
 
 `services/designer.py`:
 
-1. **Create:** system prompt + `<problem>` → `DesignUpdate` → revision 1.
+1. **Create:** system prompt + `<problem>` → `PatchUpdate` (reply + patches), applied to an empty
+   design → revision 1.
 2. **Refine:** system prompt + the last 10 chat turns + `<current_design>` JSON + `<request>` →
-   `DesignUpdate` → revision n+1.
-3. **Restore:** copies an old revision forward as a new revision (history is append-only).
+   `PatchUpdate`, applied to the latest design → revision n+1.
+3. **Restore:** copies an old revision forward as a new revision (history is append-only). No AI
+   call.
+4. **Model editor:** `POST /api/projects/{id}/patches` with `expected_revision` and a list of
+   patches → the same validator, no AI call → revision n+1 (ADR 0024).
+
+`services/patch.py` (ADR 0013) applies the patches in order on a copy, all or nothing. Each
+operation (`add_station`, `set_param`, `connect`, `add_step`, ...) is one flat `PatchOp` with an
+`op` name and nullable operands. Bounds (mass > 0, lanes ≥ 1, `reject_rate` in [0, 1], ...),
+references, unique ids and an acyclic graph are checked in code; a failure is a
+`PatchError(index, code, message)` with a fixed code (`unknown_station`, `invalid_value`,
+`computed_field`, `graph_cycle`, ...). Values the software computes (`sequence`, `cycle_time_s`,
+placement, motion step durations) are rejected as `computed_field`.
+
+**Repair loop.** Rejected patches go back to the AI as the next turn, up to
+`MF_MAX_REPAIR_ATTEMPTS` answers in total (default 3), each attempt logged. After the last one the
+user gets a readable error and the design is unchanged. The model editor gets the errors back
+directly (HTTP 400, nothing saved).
+
+**Stale saves.** A refine, restore or editor save states the revision it was prepared against.
+If another write got there first, nothing is saved and the API answers 409 with a reload message.
 
 The system prompt (`llm/prompts.py`) is byte-stable so Claude can cache it.
 
 ## LLM providers
 
-`llm/base.py` defines one method: `structured(system, turns, output_model) -> output_model`.
+`llm/base.py` defines one method, `structured(system, turns, output) -> output`, and three
+capability flags per provider: `strict_schema`, `tools`, `thinking`. Correctness never depends on
+them (D6, ADR 0014): every answer is parsed and validated by our code, unknown keys rejected, and a
+wrong shape goes back to the model once more before the patch validator checks what it means.
 
 | Provider | Use | Notes |
 |---|---|---|
-| `anthropic` | Default. Claude API | Streaming, adaptive thinking, structured outputs (JSON schema), prompt caching, server-side refusal fallback |
-| `openai_compatible` | Private deployments: Ollama, vLLM, LM Studio, Azure OpenAI | JSON-schema response format, one retry with the validation error |
-| `mock` | Tests, demos without a key | Fixed demo machine picked by `MF_MOCK_SCENARIO` (default blister); never reads your text, each request applies its next scripted edit |
+| `anthropic` | Default. Claude API | Streaming, adaptive thinking, schema sent in the prompt (too large for Claude strict mode), prompt caching, server-side refusal fallback |
+| `openai` | OpenAI, Responses API | Strict JSON schema, `store: false` |
+| `gemini` | Google Gemini | JSON mode, schema sent in the prompt |
+| `openai_compatible` | Private deployments: Ollama, vLLM, LM Studio, Azure OpenAI | JSON-schema response format |
+| `mock` | Tests, demos without a key | Fixed demo machine picked by `MF_MOCK_SCENARIO` (default blister); never reads your text, each request applies its next scripted edit through the same validator |
 
 See [ai-providers.md](ai-providers.md) for private / on-premise options.
 
@@ -94,11 +141,12 @@ distributor APIs have daily quotas. See [suppliers.md](suppliers.md).
 - **New connector:** add `suppliers/<name>.py` with a class exposing `name`, `label`, `search()`;
   register it in `suppliers/__init__.py` (`make_connectors` and `connector_status`); add a test
   with a recorded payload (see `tests/test_connectors.py`).
-- **New LLM provider:** implement `structured()`, register it in `llm/__init__.py`.
+- **New LLM provider:** implement `structured()` and the three capability flags, register it in
+  `llm/__init__.py`, and add a test with a recorded payload (see `tests/test_llm_providers.py`).
 - **New output (3D, PLC, docs…):** add `services/<output>.py` that takes a `MachineDesign` and
   returns the artifact, plus an endpoint `GET /api/projects/{id}/<output>?revision=n`. If it needs
-  new fields (e.g. station envelopes for 3D), add them to the model with defaults so old revisions
-  still load.
+  new fields, add them to the model with defaults so old revisions still load, a migration step and
+  a `schema_version` bump (rule 7).
 
 ## Storage
 

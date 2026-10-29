@@ -51,10 +51,6 @@ titles in `rfq.py`, and `plc.py:352` (filters on generated station codes, not la
   planning Phase 1 step 7). Needs a spec that reopens `services/patch.py`, with its property
   tests.
 
-## Rule checks that are not enforced
-
-- Rule 7: `tests/test_migration.py` builds the v0.3 database in code. Add a committed old-database fixture and test for rule 7.
-
 ## Docs to update
 
 - `README.md`, roadmap lines for Phases 4 and 5: still the summary from before ADRs 0016 and 0017.
