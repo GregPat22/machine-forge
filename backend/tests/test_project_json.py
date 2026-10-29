@@ -136,7 +136,7 @@ def test_importing_a_v1_era_export_migrates(client: TestClient) -> None:
     r = client.post("/api/projects/import", content=json.dumps(file))
     assert r.status_code == 201
     body = r.json()
-    assert body["design"]["schema_version"] == 2
+    assert body["design"]["schema_version"] == 3
     assert body["design"]["transports"], "v1 sequence becomes a transport chain"
     assert [s["sequence"] for s in body["design"]["stations"] if s["sequence"]] == sorted(
         s["sequence"] for s in v1["stations"] if s["sequence"]

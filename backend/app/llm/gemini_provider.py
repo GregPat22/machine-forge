@@ -1,7 +1,7 @@
 """Google Gemini provider (`models.generateContent`).
 
 JSON mode without a response schema. Google documents that complex schemas can be rejected with
-`400 INVALID_ARGUMENT` and the answer schema has 51 nullable (`anyOf`) fields; whether Gemini accepts
+`400 INVALID_ARGUMENT` and the answer schema has 52 nullable (`anyOf`) fields; whether Gemini accepts
 it is untested. Until a live test shows it does, the schema goes in the system instruction and our
 code validates the answer, as for Claude (ADR 0014).
 """

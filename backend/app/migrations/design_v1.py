@@ -1,4 +1,5 @@
-"""MachineDesign v1 (v0.3 and Phase 0) and its migration to v2 (Phase 1 spec, section B).
+"""MachineDesign v1 (v0.3 and Phase 0) and its migration to v2 (Phase 1 spec, section B), and
+the migration of v2 to v3 (Phase 2 spec, section A; ADR 0026).
 
 The v1 classes are a frozen copy of `app/models.py` at commit f93f288. They are used only to
 read old revisions; do not edit them. Unknown or missing data stays null: nothing is guessed.
@@ -120,6 +121,10 @@ def migrate_design(raw: dict[str, Any], from_version: int) -> MachineDesign:
     """Read a stored design written with `from_version` of the schema as the current model."""
     if from_version == CURRENT_VERSION:
         return MachineDesign.model_validate(raw)
+    if from_version == 2:
+        # v3 only added Mechanism.profile and Mechanism.jerk, which take their defaults
+        # (trapezoidal, no jerk); everything else reads as it was stored.
+        return MachineDesign.model_validate({**raw, "schema_version": 3})
     if from_version != 1:
         raise ValueError(f"Unknown design schema version {from_version}")
     v1 = MachineDesignV1.model_validate(raw)

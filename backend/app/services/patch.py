@@ -271,7 +271,7 @@ def _check_component(issues: list[Issue], component: Component, station: Station
 
 def _check_mechanism_values(issues: list[Issue], mechanism: Mechanism) -> None:
     where = f"mechanism '{mechanism.id}'"
-    for field in ("stroke", "max_speed", "acceleration"):
+    for field in ("stroke", "max_speed", "acceleration", "jerk"):
         _bound(issues, where, field, getattr(mechanism, field), "greater than 0")
     _bound(issues, where, "dwell_s", mechanism.dwell_s, "at least 0")
 
