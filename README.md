@@ -7,33 +7,49 @@ suppliers and external vendors** to find the best offer.
 
 Think special-purpose machines: packaging, filling, assembly, inspection.
 
-> Status: **Phase 0 done, Phase 1 (model v2 and patch edits) next, see [docs/PLAN.md](docs/PLAN.md)
-> and [docs/specs/phase-1.md](docs/specs/phase-1.md).** The project was
+> Status: **Phase 0 done. Phase 1 (model v2 and patch edits) built, in its final check, see
+> [docs/PLAN.md](docs/PLAN.md) and [docs/specs/phase-1.md](docs/specs/phase-1.md).** The project was
 > redefined on 2026-10-21: AI-assisted concept engineering with real timing, throughput,
 > geometry, BOM and cost, simulated before anything is built. The v0.3 design loop, revisions and
 > diffs, concept 3D, 2D top view (SVG/DXF), technical documents, PLC skeleton, spare-parts catalog
 > and supplier comparison still work end to end. The v0.3 "realistic 3D" render was removed:
 > it drew cabinets, hardware and products the model knew nothing about (see
-> [ADR 0009](docs/adr/0009-geometry-as-data-scene-json.md)). Simulation, an honest 3D view and
-> the module library arrive with Phases 1 to 5.
+> [ADR 0009](docs/adr/0009-geometry-as-data-scene-json.md)). Since Phase 1 the model can carry
+> simulation data (product, process graph, mechanisms, steps) and the AI edits it in small checked
+> steps. Simulation, an honest 3D view and the module library arrive with Phases 2 to 5.
 
 ## What works today
 
 - **Problem → machine.** The AI breaks the problem into stations along the product flow, adds
   infrastructure (frame, control cabinet, safety, utilities), and lists the components of each
   station with specs, suggested manufacturer, make/buy, wear parts, criticality (A/B/C) and
-  recommended spares. It also records its assumptions and open questions.
+  recommended spares. It also records its assumptions and open questions. The model holds the
+  product (dimensions, mass, lanes), the process graph (the transports between stations), and
+  per station its mechanisms (axes) and ordered steps. Where the AI does not know a value it
+  leaves it empty and asks, instead of inventing a number.
 - **Refine by prompting.** "Add vision inspection", "use Beckhoff instead of Siemens", "make it
   washdown-ready". Each prompt creates a new revision. While the AI works you see what it's doing
   (its thinking, then "writing: 6 stations, 41 components so far").
-- **Revisions and diffs.** View, restore or compare any two revisions: stations and components
-  added, removed or changed, field by field.
+- **Checked edits.** The AI does not rewrite the design: it sends small edits (patches) that code
+  checks before anything changes. A bad edit goes back to the AI with the exact error (three
+  answers at most, `MF_MAX_REPAIR_ATTEMPTS`); if it still fails, you get a readable message and the
+  design stays as it was. Values the software computes (station order, cycle time, positions)
+  cannot be set by the AI.
+- **Model editor.** The "Model" tab edits the same model by hand: stations, parameters,
+  mechanisms, steps, components and transports. Saves go through the same checks as the AI and
+  create a revision like a chat turn does.
+- **Revisions and diffs.** View, restore or compare any two revisions: stations, components,
+  transports, parameters, mechanisms and steps added, removed or changed, field by field.
+- **Project files.** Export a project with all its revisions and chat as one JSON file and import
+  it again as a new project (API only for now: `GET /api/projects/{id}/export`,
+  `POST /api/projects/import`). Projects from v0.3 open and are upgraded on read.
 - **Concept 3D and 2D top view.** The layout as labelled blocks (one per station envelope), and
   as a dimensioned top view to download as SVG or as DXF (R12, mm) for CAD. Inline or U-shape
   ("make the line U-shaped"). Positions are computed by code from the station envelopes the AI
   proposes. Nothing is drawn that the model does not contain.
-- **Technical documents.** Functional description, sequence of operations with a cycle-time vs
-  throughput check, estimated I/O list with PLC sizing, recommended spare parts, a hazard
+- **Technical documents.** Functional description, sequence of operations with each station's
+  cycle time (the comparison with the required rate returns with the throughput engine), I/O list
+  from each component's signals with PLC sizing, recommended spare parts, a hazard
   checklist along ISO 12100 and the safety functions to specify. Export to Word, Markdown or
   print/PDF, optionally on your company's Word template (headers, footers, styles, cover page).
   They are derived from the design by rules, so they never claim compliance.
@@ -48,8 +64,9 @@ Think special-purpose machines: packaging, filling, assembly, inspection.
   part, scored on price, lead time, availability and your own supplier ratings, with potential
   savings. **RFQ workbooks**: one Excel sheet per supplier (no prices go out); import the answered
   file as it is.
-- **Pluggable AI.** Claude API by default; any OpenAI-compatible endpoint (Ollama, vLLM, Azure
-  OpenAI) for private deployments; an offline demo engine for testing without a key.
+- **Pluggable AI.** Claude API by default; native OpenAI and Google Gemini; any OpenAI-compatible
+  endpoint (Ollama, vLLM, Azure OpenAI) for private deployments; an offline demo engine for
+  testing without a key. Every answer is checked by our code, whatever the provider.
 
 ## Quick start
 
@@ -121,27 +138,33 @@ For private / on-premise models see [docs/ai-providers.md](docs/ai-providers.md)
 ```bash
 cd backend && pytest          # no network or keys needed
 cd frontend && npm run build  # type-check + production build
+cd frontend && npm run e2e    # browser test of the model editor (once: npx playwright install chromium)
 ```
 
-GitHub Actions runs both on every push.
+GitHub Actions runs all three on every push. The browser test starts its own scratch backend with
+the demo engine, so it never touches your data ([ADR 0025](docs/adr/0025-playwright-end-to-end-test.md)).
 
 ## Project layout
 
 ```
 backend/
   app/
-    models.py            MachineDesign (the source of truth), catalog and sourcing types
-    llm/                 provider interface, Claude, OpenAI-compatible, demo engine, prompts
-    services/            designer (prompt loop), diff, layout, drawing (SVG/DXF), documents, io_points,
-                         plc, spare_parts, price_list, sourcing, rfq
+    models.py            MachineDesign v2 (the source of truth), catalog and sourcing types
+    migrations/          the v1 design shape, used only to load old revisions
+    llm/                 provider interface, Claude, OpenAI, Gemini, OpenAI-compatible, demo engine, prompts
+    services/            designer (prompt loop + repair), patch (edits and their checks), diff, layout,
+                         drawing (SVG/DXF), documents, io_points, plc, spare_parts, price_list,
+                         sourcing, rfq, spreadsheet, project_json (export/import)
     suppliers/           external connectors (Mouser, Nexar)
     api/                 HTTP endpoints
     storage.py           SQLite
   tests/
 frontend/src/
   pages/                 Home, ProjectPage (chat + tabs), Suppliers
-  components/            Chat, DesignView, Layout3D (three.js, concept blocks), DocumentsView, PlcView,
-                         SparePartsView, RevisionsView + DiffView, SupplierRatings
+  components/            Chat, DesignView, ModelEditor, Layout3D (three.js, concept blocks), LayoutView,
+                         DocumentsView, PlcView, SparePartsView, RevisionsView + DiffView,
+                         SupplierRatings
+frontend/e2e/            Playwright browser test
 docs/                    PLAN (read first), engineering-rules, specs/ (one per phase), adr/,
                          architecture, output options, suppliers, AI providers
 ```
