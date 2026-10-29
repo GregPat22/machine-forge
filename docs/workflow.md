@@ -26,6 +26,12 @@ summary is never evidence.
    against the diff and the spec, and writes a verdict.
 6. **Greg decides.** Greg reads the report and the verdict, tries the "how to see it" steps in
    the running app, and says go or no-go. Only then does anything get committed.
+7. **Prompt for the next worktree.** Before anything is pushed, and before a worktree is closed
+   for any other reason, the agent ends its last message with a short prompt Greg can paste into
+   the next Conductor workspace (or one per workspace, when the next steps can run in parallel).
+   It names the spec step and its section, what must be merged first, the suggested model and
+   effort, and anything the next agent must know that is not in the spec yet. A few lines, no
+   repetition of the spec.
 
 One human gate per phase, plus the per-step go/no-go. Everything between runs without Greg.
 
@@ -62,6 +68,9 @@ One to three concrete steps in the running app (use the mock provider).
 
 ## Risks
 What could be wrong that the tests would not catch.
+
+## Prompt for the next worktree
+Added before the push or when the worktree closes (cycle step 7).
 ```
 
 ## Audit agent: prompt
