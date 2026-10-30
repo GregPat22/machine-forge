@@ -121,6 +121,8 @@ question; it does not invent numbers.
   `format_version: 1`, project, all revisions, messages). `POST /api/projects/import` accepts it.
 - Import validates size (limit configurable, default 20 MB) and `format_version`, migrates
   designs from older `schema_version`, and creates a new project (never overwrites).
+- Revision numbers must be consecutive from 1: this format carries the complete history, so an
+  incomplete or gapped history is rejected before any project is saved (review fix R10).
 - Own format only. No third-party formats in this phase.
 
 ### F. Providers
