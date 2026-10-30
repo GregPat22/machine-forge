@@ -190,6 +190,8 @@ NOT_COMPUTABLE_CASES: list[tuple[str, Station, list[tuple[str, str | None, str |
      [("jerk_missing", None, "m", None)]),
     ("parallel_group_split", _station([_fixed("a", 1, 0.1, 7), _fixed("b", 2, 0.1), _fixed("c", 3, 0.1, 7)]),
      [("parallel_group_split", None, None, 7)]),
+    ("mechanism_overlap", _station([_move("a", 1, "m", 7), _move("b", 2, "m", 7)], [_axis("m")]),
+     [("mechanism_overlap", None, "m", 7)]),
 ]
 
 
@@ -298,10 +300,13 @@ def _stations(draw: st.DrawFn) -> Station:
     for block in range(draw(st.integers(1, 5))):
         size = draw(st.integers(1, 3))
         group = block + 1 if size > 1 or draw(st.booleans()) else None  # a group of one is allowed
+        available = list(mechanisms)  # one motion per physical axis within a parallel block
         for _ in range(size):
             order = len(steps) + 1
-            if mechanisms and draw(st.booleans()):
-                steps.append(_move(f"s{order}", order, draw(st.sampled_from(mechanisms)).id, group))
+            if available and draw(st.booleans()):
+                mechanism = draw(st.sampled_from(available))
+                available.remove(mechanism)
+                steps.append(_move(f"s{order}", order, mechanism.id, group))
             else:
                 steps.append(_fixed(f"s{order}", order, draw(st.floats(0.001, 10.0, **_POSITIVE)), group))
     return _station(list(draw(st.permutations(steps))), mechanisms)

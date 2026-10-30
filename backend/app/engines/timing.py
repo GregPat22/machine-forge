@@ -25,6 +25,7 @@ in the design.
 from __future__ import annotations
 
 import math
+from collections import Counter
 from typing import Literal
 
 from pydantic import BaseModel
@@ -35,7 +36,7 @@ from app.models import MachineDesign, Mechanism, Station, Step
 # Bumped whenever a formula or a rule of this engine changes, so stored results are recomputed.
 # A stored timing result also holds the bounds check (`app.engines.bounds`) and its merge
 # (`app.services.timing.compute_timing`): a change to either bumps this too.
-ENGINE_VERSION = 1
+ENGINE_VERSION = 2
 
 ReasonCode = Literal[
     "no_steps",
@@ -46,6 +47,7 @@ ReasonCode = Literal[
     "acceleration_missing",
     "jerk_missing",
     "parallel_group_split",
+    "mechanism_overlap",
 ]
 WarningCode = Literal["target_not_met", "out_of_bounds"]
 BarSource = Literal["trapezoidal", "s_curve", "fixed"]
@@ -198,6 +200,11 @@ def station_timing(station: Station) -> StationTiming:
 
     blocks, split_groups = _blocks(steps)
     reasons.extend(NotComputableReason(code="parallel_group_split", parallel_group=g) for g in split_groups)
+    for block in blocks:
+        moves = Counter(s.mechanism_id for s in block if s.kind == "motion" and s.mechanism_id in mechanisms)
+        reasons.extend(NotComputableReason(code="mechanism_overlap", mechanism_id=mid,
+                                           parallel_group=block[0].parallel_group)
+                       for mid, count in moves.items() if count > 1)
     if reasons:
         return StationTiming(station_id=station.id, target_cycle_time_s=target, not_computable=reasons)
 

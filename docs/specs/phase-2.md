@@ -143,7 +143,8 @@ TimingResult` over all stations. No I/O. Rules, all decided here:
    when the cycle is longer.
 8. **Not computable** is a normal result, not an error: no steps; a fixed step with no duration; a
    motion step whose mechanism is missing or lacks `stroke`, `max_speed` or `acceleration`; an
-   `s_curve` mechanism with no `jerk`; a split parallel group. The result lists every reason with a
+   `s_curve` mechanism with no `jerk`; a split parallel group; motions of the same mechanism in one
+   parallel block (`mechanism_overlap`, ADR 0031). The result lists every reason with a
    fixed code and the step or mechanism id. Values that the validator forbids (zero, negative) and
    that still reach the engine raise, they are not reported as warnings.
 
