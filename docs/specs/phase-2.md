@@ -134,8 +134,9 @@ TimingResult` over all stations. No I/O. Rules, all decided here:
    block. **Limiting step** = the longest step on the critical path; ties go to the lower `order`,
    then the lower id.
 5. **Per mechanism**: busy time (sum of its motion steps, dwell included), idle time (cycle − busy),
-   utilisation (busy / cycle).
-6. **Timing diagram** for one cycle: one row per mechanism (a bar per motion step) and one row per
+   utilisation (busy / cycle). Unused mechanisms have busy 0, idle = cycle and utilisation 0
+   even when their motion inputs are unknown (ADR 0032).
+6. **Timing diagram** for one cycle: one row per mechanism with motions (a bar per motion step) and one row per
    fixed-duration step, in order of first start. Each bar: step id, start, end, duration, whether
    it is on the critical path, and its source (`trapezoidal`, `s_curve` or `fixed`).
 7. **Target check.** When `target_cycle_time_s` is set: margin = target − cycle (computed here, so

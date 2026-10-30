@@ -36,7 +36,7 @@ from app.models import MachineDesign, Mechanism, Station, Step
 # Bumped whenever a formula or a rule of this engine changes, so stored results are recomputed.
 # A stored timing result also holds the bounds check (`app.engines.bounds`) and its merge
 # (`app.services.timing.compute_timing`): a change to either bumps this too.
-ENGINE_VERSION = 2
+ENGINE_VERSION = 3
 
 ReasonCode = Literal[
     "no_steps",
@@ -238,6 +238,9 @@ def station_timing(station: Station) -> StationTiming:
         if row.kind == "mechanism":
             busy = math.fsum(bar.duration_s for bar in row.bars)
             axes.append(MechanismTiming(mechanism_id=row.id, busy_s=busy, idle_s=cycle - busy, utilisation=busy / cycle))
+    moved = {axis.mechanism_id for axis in axes}
+    axes.extend(MechanismTiming(mechanism_id=m.id, busy_s=0.0, idle_s=cycle, utilisation=0.0)
+                for m in station.mechanisms if m.id not in moved)
 
     warnings = []
     if target is not None and cycle > target:
