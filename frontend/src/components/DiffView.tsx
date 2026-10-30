@@ -28,7 +28,14 @@ export default function DiffView({ projectId, from, to }: { projectId: string; f
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    api.diff(projectId, from, to).then(setDiff).catch((e: Error) => setError(e.message));
+    let obsolete = false;
+    setDiff(null);
+    setError(null);
+    api.diff(projectId, from, to)
+      .then((next) => { if (!obsolete) setDiff(next); })
+      .catch((e: Error) => { if (!obsolete) setError(e.message); });
+    // Responses can arrive after the engineer selects a different pair of revisions.
+    return () => { obsolete = true; };
   }, [projectId, from, to]);
 
   if (error) return <p className="text-xs text-red-600">{error}</p>;
