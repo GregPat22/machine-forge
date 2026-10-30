@@ -45,8 +45,10 @@ ReasonCode = Literal[
     "jerk_missing",
     "parallel_group_split",
 ]
-WarningCode = Literal["target_not_met"]
+WarningCode = Literal["target_not_met", "out_of_bounds"]
 BarSource = Literal["trapezoidal", "s_curve", "fixed"]
+# Fields the plausibility bounds can check (`app.engines.bounds`): a mechanism's or a transport's.
+BoundsField = Literal["stroke", "max_speed", "acceleration", "jerk", "index_time_s", "speed_mm_s"]
 
 
 class TimingError(ValueError):
@@ -63,13 +65,26 @@ class NotComputableReason(BaseModel):
 
 
 class TimingWarning(BaseModel):
-    """A finding on a computable station. `target_not_met`: `value` is the cycle, `limit` the target."""
+    """A finding. Never a correction: the design is not changed.
+
+    `target_not_met`: on a computable station, `value` is the cycle, `limit` the target.
+    `out_of_bounds`: `value` is the mechanism's (station and mechanism ids) or the transport's
+    `field`, `limit` the catalog bound (`min` or `max`) it passes, from the bounds row `row_id`
+    with its source title and URL.
+    """
 
     code: WarningCode
-    station_id: str
+    station_id: str | None = None
     step_id: str | None = None
     value: float
     limit: float
+    mechanism_id: str | None = None
+    transport_id: str | None = None
+    field: BoundsField | None = None
+    bound: Literal["min", "max"] | None = None
+    row_id: str | None = None
+    source_title: str | None = None
+    source_url: str | None = None
 
 
 class TimingBar(BaseModel):
