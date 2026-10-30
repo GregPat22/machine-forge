@@ -29,8 +29,11 @@ class MouserConnector:
         try:
             response = self._http.post(path, params={"apiKey": self._api_key}, json=body)
             response.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            # The exception text includes the request URL, whose query contains the API key.
+            raise ConnectorError(f"Mouser request failed (HTTP {exc.response.status_code}).") from exc
         except httpx.HTTPError as exc:
-            raise ConnectorError(f"Mouser request failed: {exc}") from exc
+            raise ConnectorError("Cannot reach Mouser. Check the connection and try again.") from exc
 
         data = response.json()
         errors = data.get("Errors") or []

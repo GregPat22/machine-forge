@@ -32,6 +32,9 @@ the list unless you tick **Append**.
 **First thing to do when you have keys:** run a comparison on a demo machine and check the
 offers. The parsers follow the documented response shapes, but field details can differ.
 
+Mouser connection errors show a safe message (and the HTTP status when available), without the
+authenticated request URL or its API key.
+
 ### Coverage gap: pneumatics and mechanics
 
 Electronics distributors cover sensors, PLCs and power supplies well, but they only partly cover
