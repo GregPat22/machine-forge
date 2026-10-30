@@ -8,6 +8,7 @@ import threading
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import NamedTuple
 
 from app.migrations.design_v1 import CURRENT_VERSION, migrate_design
 from app.models import (
@@ -87,6 +88,18 @@ CREATE TABLE IF NOT EXISTS offer_cache (
     fetched_at TEXT NOT NULL,
     PRIMARY KEY (connector, query)
 );
+CREATE TABLE IF NOT EXISTS revision_results (
+    project_id TEXT NOT NULL,
+    workspace_id TEXT NOT NULL DEFAULT 'default',
+    revision INTEGER NOT NULL,
+    engine TEXT NOT NULL,
+    engine_version INTEGER NOT NULL,
+    inputs_version TEXT NOT NULL,
+    result TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (project_id, revision, engine),
+    FOREIGN KEY (project_id, revision) REFERENCES revisions(project_id, number) ON DELETE CASCADE
+);
 """
 
 # Columns added after v0.3, applied to databases created before them: (table, column, DDL type).
@@ -103,6 +116,14 @@ MIGRATIONS: tuple[tuple[str, str, str], ...] = (
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)
+
+
+class StoredResult(NamedTuple):
+    """An engine result kept for one revision (ADR 0003, 0028): a cache with its provenance."""
+
+    engine_version: int
+    inputs_version: str
+    result: str
 
 
 class RevisionConflict(RuntimeError):
@@ -262,6 +283,29 @@ class Storage:
         with self._lock, self._conn:
             cur = self._conn.execute("DELETE FROM projects WHERE id = ?", (project_id,))
         return cur.rowcount > 0
+
+    # --- engine results (ADR 0028) ----------------------------------------------------------
+
+    def get_result(self, project_id: str, revision: int, engine: str) -> StoredResult | None:
+        with self._lock:
+            row = self._conn.execute(
+                """SELECT engine_version, inputs_version, result FROM revision_results
+                   WHERE project_id = ? AND revision = ? AND engine = ?""",
+                (project_id, revision, engine),
+            ).fetchone()
+        return None if row is None else StoredResult(row["engine_version"], row["inputs_version"], row["result"])
+
+    def put_result(
+        self, project_id: str, revision: int, engine: str, engine_version: int, inputs_version: str, result: str
+    ) -> None:
+        """Stores or replaces the result of one engine for one revision. The design is never touched."""
+        with self._lock, self._conn:
+            self._conn.execute(
+                """INSERT OR REPLACE INTO revision_results
+                   (project_id, revision, engine, engine_version, inputs_version, result, created_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                (project_id, revision, engine, engine_version, inputs_version, result, _now().isoformat()),
+            )
 
     @staticmethod
     def _summary(row: sqlite3.Row) -> ProjectSummary:
