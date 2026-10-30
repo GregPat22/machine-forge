@@ -65,18 +65,23 @@ def _number(value: object, field: str = "number") -> float | None:
     if isinstance(value, (int, float)):
         return _finite(float(value), field)
     raw = str(value)
-    number = re.search(r"[+-]?(?:\d[\d.,]*|[.,]\d+)(?:[eE][+-]?\d+)?", raw)
-    if number is None or re.search(r"\d", raw[number.end():]):
+    exponent = re.search(r"(?<=[\d.,])[eE][+-]?\d+", raw)
+    suffix = ""
+    if exponent is not None:
+        if re.search(r"[\d.,+\-]", raw[exponent.end():]):
+            return None
+        suffix, raw = exponent.group(), raw[:exponent.start()]
+    # Preserve the existing currency/sign/grouping handling while protecting the exponent.
+    text = re.sub(r"[^\d,.\-]", "", raw)
+    if not text:
         return None
-    mantissa, *exponent = re.split(r"[eE]", number.group(), maxsplit=1)
-    text = mantissa
     # "1.234,56" (Italian) and "1,234.56" (English) both become 1234.56.
     if "," in text and "." in text:
         text = text.replace(".", "").replace(",", ".") if text.rfind(",") > text.rfind(".") else text.replace(",", "")
     elif "," in text:
         text = text.replace(",", ".")
     try:
-        parsed = float(text + ("e" + exponent[0] if exponent else ""))
+        parsed = float(text + suffix)
     except ValueError:
         return None
     return _finite(parsed, field)
