@@ -169,7 +169,11 @@ Result models (`StationTiming`, `TimingResult`, `TimingWarning`, reason and warn
   Nothing else in `documents.py` changes.
 - The limiting step and the warnings are not station properties; they are in the timing result.
 
-### E. Plausibility bounds (`backend/data/catalog_bounds.yaml`)
+### E. Plausibility bounds (`backend/app/data/catalog_bounds.yaml`)
+
+The public table ships as `app` package data and is loaded through `importlib.resources`, so
+source installs and wheels use the same file. An offline wheel test checks the packaged table
+and the timing/diff endpoints without access to the source checkout (review fix R8).
 
 - One YAML file, read with `yaml.safe_load` (new dependency `pyyaml`), validated by a Pydantic
   model when the service loads it. `bounds_version` = SHA-256 of the file, so cached results are

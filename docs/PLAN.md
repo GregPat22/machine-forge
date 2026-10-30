@@ -223,7 +223,7 @@ hidden shortcuts that only work for the demo prompts).
   axis/step, one cycle).
 - Target vs computed: warnings when a station cannot meet the required cycle, with the limiting
   step named.
-- Plausibility bounds per component role from a public catalog table (`data/catalog_bounds.yaml`:
+- Plausibility bounds per component role from a public catalog table (`app/data/catalog_bounds.yaml`:
   pneumatic cylinder speeds, servo accelerations, indexing table index times, from vendor
   catalogs with the source URL per row). Parameters outside bounds raise a warning, never a
   silent correction.

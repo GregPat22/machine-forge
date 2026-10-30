@@ -18,8 +18,7 @@ frontend/dist/
 .env.*
 !.env.example
 backend/data/*
-# Plausibility bounds table (Phase 2 spec, section E): public catalog data, committed.
-!backend/data/catalog_bounds.yaml
+# Public catalog bounds ship under backend/app/data/, outside private installation data.
 *.db
 *.db-journal
 # Old-database fixtures for the migration tests (engineering rule 7): synthetic, committed.
