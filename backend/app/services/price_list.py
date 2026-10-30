@@ -53,16 +53,19 @@ def _number(value: object) -> float | None:
         return None
     if isinstance(value, (int, float)):
         return float(value)
-    text = re.sub(r"[^\d,.\-]", "", str(value))
-    if not text:
+    raw = str(value)
+    number = re.search(r"[+-]?(?:\d[\d.,]*|[.,]\d+)(?:[eE][+-]?\d+)?", raw)
+    if number is None or re.search(r"\d", raw[number.end():]):
         return None
+    mantissa, *exponent = re.split(r"[eE]", number.group(), maxsplit=1)
+    text = mantissa
     # "1.234,56" (Italian) and "1,234.56" (English) both become 1234.56.
     if "," in text and "." in text:
         text = text.replace(".", "").replace(",", ".") if text.rfind(",") > text.rfind(".") else text.replace(",", "")
     elif "," in text:
         text = text.replace(",", ".")
     try:
-        return float(text)
+        return float(text + ("e" + exponent[0] if exponent else ""))
     except ValueError:
         return None
 

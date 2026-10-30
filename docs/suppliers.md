@@ -19,8 +19,8 @@ matched loosely, in English or Italian:
 | lead time (days) | Lead time, Tempo di consegna | no |
 | MOQ | MOQ, Lotto minimo | no |
 
-Italian number formats (`1.234,56`) and `;`-separated CSVs from Excel work. Each import replaces
-the list unless you tick **Append**.
+Italian number formats (`1.234,56`), scientific notation (`1.2E+03` = 1200), and `;`-separated
+CSVs from Excel work. Each import replaces the list unless you tick **Append**.
 
 ## 2. External connectors
 
