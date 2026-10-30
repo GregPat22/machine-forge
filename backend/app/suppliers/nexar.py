@@ -10,7 +10,7 @@ import time
 import httpx
 
 from app.models import Offer, SparePart
-from app.suppliers.base import ConnectorError, search_query
+from app.suppliers.base import ConnectorError, exact_part_match, search_query
 
 TOKEN_URL = "https://identity.nexar.com/connect/token"
 GRAPHQL_URL = "https://api.nexar.com/graphql"
@@ -107,7 +107,8 @@ class NexarConnector:
                             stock=offer.get("inventoryLevel"),
                             lead_time_days=offer.get("factoryLeadDays"),
                             url=offer.get("clickUrl"),
-                            match="exact" if by_pn else "similar",
+                            match="exact" if by_pn and exact_part_match(
+                                part, (p.get("manufacturer") or {}).get("name"), p.get("mpn")) else "similar",
                         )
                     )
         # Keep the cheapest offers in stock first; the sourcing service scores them properly.

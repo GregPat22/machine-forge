@@ -19,8 +19,11 @@ matched loosely, in English or Italian:
 | lead time (days) | Lead time, Tempo di consegna | no |
 | MOQ | MOQ, Lotto minimo | no |
 
-Italian number formats (`1.234,56`) and `;`-separated CSVs from Excel work. Each import replaces
-the list unless you tick **Append**.
+Italian number formats (`1.234,56`), scientific notation (`1.2E+03` = 1200), and `;`-separated
+CSVs from Excel work. Each import replaces the list unless you tick **Append**.
+Nonfinite numbers and lead-time/MOQ values outside the database's signed 64-bit integer range
+are rejected with a client error. Either error in any price-list sheet rejects the whole
+upload; the existing list stays unchanged. Sheets without price-list headers are still skipped.
 
 ## 2. External connectors
 
@@ -31,6 +34,9 @@ the list unless you tick **Append**.
 
 **First thing to do when you have keys:** run a comparison on a demo machine and check the
 offers. The parsers follow the documented response shapes, but field details can differ.
+
+Mouser connection errors show a safe message (and the HTTP status when available), without the
+authenticated request URL or its API key.
 
 ### Coverage gap: pneumatics and mechanics
 

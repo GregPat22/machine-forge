@@ -134,8 +134,9 @@ TimingResult` over all stations. No I/O. Rules, all decided here:
    block. **Limiting step** = the longest step on the critical path; ties go to the lower `order`,
    then the lower id.
 5. **Per mechanism**: busy time (sum of its motion steps, dwell included), idle time (cycle − busy),
-   utilisation (busy / cycle).
-6. **Timing diagram** for one cycle: one row per mechanism (a bar per motion step) and one row per
+   utilisation (busy / cycle). Unused mechanisms have busy 0, idle = cycle and utilisation 0
+   even when their motion inputs are unknown (ADR 0032).
+6. **Timing diagram** for one cycle: one row per mechanism with motions (a bar per motion step) and one row per
    fixed-duration step, in order of first start. Each bar: step id, start, end, duration, whether
    it is on the critical path, and its source (`trapezoidal`, `s_curve` or `fixed`).
 7. **Target check.** When `target_cycle_time_s` is set: margin = target − cycle (computed here, so
@@ -143,7 +144,8 @@ TimingResult` over all stations. No I/O. Rules, all decided here:
    when the cycle is longer.
 8. **Not computable** is a normal result, not an error: no steps; a fixed step with no duration; a
    motion step whose mechanism is missing or lacks `stroke`, `max_speed` or `acceleration`; an
-   `s_curve` mechanism with no `jerk`; a split parallel group. The result lists every reason with a
+   `s_curve` mechanism with no `jerk`; a split parallel group; motions of the same mechanism in one
+   parallel block (`mechanism_overlap`, ADR 0031). The result lists every reason with a
    fixed code and the step or mechanism id. Values that the validator forbids (zero, negative) and
    that still reach the engine raise, they are not reported as warnings.
 
@@ -168,7 +170,11 @@ Result models (`StationTiming`, `TimingResult`, `TimingWarning`, reason and warn
   Nothing else in `documents.py` changes.
 - The limiting step and the warnings are not station properties; they are in the timing result.
 
-### E. Plausibility bounds (`backend/data/catalog_bounds.yaml`)
+### E. Plausibility bounds (`backend/app/data/catalog_bounds.yaml`)
+
+The public table ships as `app` package data and is loaded through `importlib.resources`, so
+source installs and wheels use the same file. An offline wheel test checks the packaged table
+and the timing/diff endpoints without access to the source checkout (review fix R8).
 
 - One YAML file, read with `yaml.safe_load` (new dependency `pyyaml`), validated by a Pydantic
   model when the service loads it. `bounds_version` = SHA-256 of the file, so cached results are
@@ -547,7 +553,7 @@ spreadsheet for the golden data.
    list in the report and does not have to check each source.
 
 Also decided in this spec: YAML with `pyyaml` as the plan names it, rather than TOML from the
-standard library; files under `backend/data/` and `backend/tests/golden/` so they sit next to the
+standard library; files under `backend/app/data/` and `backend/tests/golden/` so they sit next to the
 code that reads them; split parallel groups are reported by the engine, not rejected by the
 validator (that would reopen `patch.py`); bounds match on component category, mechanism kind and
 transport kind; no chart library.

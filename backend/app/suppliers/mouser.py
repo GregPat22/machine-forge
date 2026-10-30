@@ -5,7 +5,7 @@ from __future__ import annotations
 import httpx
 
 from app.models import Offer, SparePart
-from app.suppliers.base import ConnectorError, parse_int, parse_price, search_query
+from app.suppliers.base import ConnectorError, exact_part_match, parse_int, parse_price, search_query
 
 BASE_URL = "https://api.mouser.com/api/v1"
 
@@ -29,8 +29,11 @@ class MouserConnector:
         try:
             response = self._http.post(path, params={"apiKey": self._api_key}, json=body)
             response.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            # The exception text includes the request URL, whose query contains the API key.
+            raise ConnectorError(f"Mouser request failed (HTTP {exc.response.status_code}).") from exc
         except httpx.HTTPError as exc:
-            raise ConnectorError(f"Mouser request failed: {exc}") from exc
+            raise ConnectorError("Cannot reach Mouser. Check the connection and try again.") from exc
 
         data = response.json()
         errors = data.get("Errors") or []
@@ -54,7 +57,8 @@ class MouserConnector:
                     stock=parse_int(item.get("AvailabilityInStock")),
                     lead_time_days=parse_int(item.get("LeadTime")),
                     url=item.get("ProductDetailUrl"),
-                    match="exact" if by_pn else "similar",
+                    match="exact" if by_pn and exact_part_match(
+                        part, item.get("Manufacturer"), item.get("ManufacturerPartNumber")) else "similar",
                 )
             )
         return offers

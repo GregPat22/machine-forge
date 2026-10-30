@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import csv
 import io
+import math
 import re
 
 from app.models import PriceListEntry
@@ -29,6 +30,10 @@ class PriceListError(ValueError):
     pass
 
 
+class _MissingColumns(PriceListError):
+    """An unrelated workbook sheet, rather than a bad value in a price-list sheet."""
+
+
 def _norm(header: str) -> str:
     return re.sub(r"[^a-z0-9() ]", "", header.strip().lower().replace("_", " ").replace("à", "a"))
 
@@ -42,18 +47,32 @@ def _map_columns(headers: list[str]) -> dict[str, int]:
                 mapping[field] = idx
                 break
     if "supplier" not in mapping:
-        raise PriceListError("Missing a supplier column (e.g. 'Supplier' or 'Fornitore').")
+        raise _MissingColumns("Missing a supplier column (e.g. 'Supplier' or 'Fornitore').")
     if "part_number" not in mapping and "description" not in mapping:
-        raise PriceListError("Need a part number or a description column to match parts.")
+        raise _MissingColumns("Need a part number or a description column to match parts.")
     return mapping
 
 
-def _number(value: object) -> float | None:
+def _finite(value: float, field: str) -> float:
+    if not math.isfinite(value):
+        raise PriceListError(f"Invalid {field}: must be a finite number.")
+    return value
+
+
+def _number(value: object, field: str = "number") -> float | None:
     if value is None or value == "":
         return None
     if isinstance(value, (int, float)):
-        return float(value)
-    text = re.sub(r"[^\d,.\-]", "", str(value))
+        return _finite(float(value), field)
+    raw = str(value)
+    exponent = re.search(r"(?<=[\d.,])[eE][+-]?\d+", raw)
+    suffix = ""
+    if exponent is not None:
+        if re.search(r"[\d.,+\-]", raw[exponent.end():]):
+            return None
+        suffix, raw = exponent.group(), raw[:exponent.start()]
+    # Preserve the existing currency/sign/grouping handling while protecting the exponent.
+    text = re.sub(r"[^\d,.\-]", "", raw)
     if not text:
         return None
     # "1.234,56" (Italian) and "1,234.56" (English) both become 1234.56.
@@ -62,9 +81,20 @@ def _number(value: object) -> float | None:
     elif "," in text:
         text = text.replace(",", ".")
     try:
-        return float(text)
+        parsed = float(text + suffix)
     except ValueError:
         return None
+    return _finite(parsed, field)
+
+
+def _integer(value: object, field: str) -> int | None:
+    number = _number(value, field)
+    if number is None:
+        return None
+    result = int(number)
+    if not -(2**63) <= result < 2**63:  # SQLite INTEGER is signed 64-bit.
+        raise PriceListError(f"Invalid {field}: must fit a signed 64-bit integer.")
+    return result
 
 
 def _text(value: object) -> str | None:
@@ -112,11 +142,11 @@ def _parse_rows(rows: list[list[object]], filename: str, default_currency: str) 
         supplier = _text(cell(row, "supplier"))
         part_number = _text(cell(row, "part_number"))
         description = _text(cell(row, "description"))
-        price = _number(cell(row, "unit_price"))
+        price = _number(cell(row, "unit_price"), "unit_price")
         if not supplier or not (part_number or description) or (is_rfq and price is None):
             continue
-        lead = _number(cell(row, "lead_time_days"))
-        moq = _number(cell(row, "moq"))
+        lead = _integer(cell(row, "lead_time_days"), "lead_time_days")
+        moq = _integer(cell(row, "moq"), "moq")
         currency = (_text(cell(row, "currency")) or default_currency).upper()
         entries.append(
             PriceListEntry(
@@ -126,8 +156,8 @@ def _parse_rows(rows: list[list[object]], filename: str, default_currency: str) 
                 description=description,
                 unit_price=price,
                 currency=currency,
-                lead_time_days=int(lead) if lead is not None else None,
-                moq=int(moq) if moq is not None else None,
+                lead_time_days=lead,
+                moq=moq,
                 source_file=filename,
             )
         )
@@ -154,7 +184,7 @@ def parse_price_list(filename: str, data: bytes, default_currency: str = "EUR") 
         try:
             entries += _parse_rows(rows, filename, default_currency)
             usable_sheets += 1
-        except PriceListError as exc:
+        except _MissingColumns as exc:
             first_error = first_error or exc
     if not usable_sheets:
         raise first_error or PriceListError("The file has no data rows.")

@@ -33,7 +33,9 @@ loop"). Everything else is derived from the design in code:
 - the technical documents (`services/documents.py`): rule-based, so they stay consistent with the
   design and never claim compliance;
 - the I/O list (`services/io_points.py`) and the PLC skeleton (`services/plc.py`), from each
-  component's `signals`, never from its name (ADR 0015).
+  component's `signals`, never from its name (ADR 0015). I/O variable names are disambiguated
+  deterministically when punctuation in component ids and quantity suffixes would collide;
+  existing names without collisions stay unchanged in both Structured Text and PLCopen XML.
 
 What the model holds (v2):
 

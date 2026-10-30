@@ -1,6 +1,6 @@
 """Plausibility bounds: the catalog table and the check against it (Phase 2, section E).
 
-The real table is `backend/data/catalog_bounds.yaml`; tests that need a value outside or inside a
+The real table is `backend/app/data/catalog_bounds.yaml`; tests that need a value outside or inside a
 bound on purpose build a synthetic table, labelled as a fixture, never as data.
 """
 

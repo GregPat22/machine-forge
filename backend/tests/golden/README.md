@@ -170,4 +170,4 @@ preview. Page numbers are the numbers printed on the page.
 | S06 | Festo, Electric cylinders EPCO, with spindle drive, catalog 2022/07 | https://ftp.festo.com/public/PNEUMATIC/SOFTWARE_SERVICE/Documentation/2023/EN/EPCO_EN.PDF | 9, 26 | size 40, pitch 12.7: "Max. speed [mm/s] 460"; "Max. acceleration [m/s2] 10"; ordering table "Stroke [mm] 50 75 100 ..." |
 | S07 | BASF, Joncryl® HSL 9012, technical data sheet, Mar22 | https://download.basf.com/p1/8a8083fb9ebb3333019ebd2e6a57008d/en/Joncryl_HSL_9012 | 3 of 4 | "Recommended seal conditions: temperature : 160 – 220 °C, pressure : >30 N/cm², time : 0.5 – 1.0 s" |
 
-The plausibility bounds (`backend/data/catalog_bounds.yaml`) carry their own sources row by row.
+The plausibility bounds (`backend/app/data/catalog_bounds.yaml`) carry their own sources row by row.

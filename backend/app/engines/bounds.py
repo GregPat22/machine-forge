@@ -1,7 +1,7 @@
 """Plausibility bounds: mechanism and transport values against public catalog data (Phase 2, section E).
 
 A pure function over the design and a table already loaded: no I/O (rule 5); the service reads
-`backend/data/catalog_bounds.yaml` (`app.services.bounds`). The table's numbers come from
+`backend/app/data/catalog_bounds.yaml` (`app.services.bounds`). The table's numbers come from
 manufacturers' public catalogs, each row citing its source; this module holds none.
 
 A row applies to a mechanism when a component of the same station whose `category` is the row's

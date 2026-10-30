@@ -143,7 +143,7 @@ def test_axis_busy_idle_and_utilisation() -> None:
     assert timing.cycle_time_s == pytest.approx(0.65 + 0.7 + 0.65, abs=TOL)
 
     axes = {m.mechanism_id: m for m in timing.mechanisms}
-    assert list(axes) == ["m-lift", "m-pick"]  # a mechanism no step moves has no timing
+    assert list(axes) == ["m-lift", "m-pick", "m-spare"]
     assert axes["m-lift"].busy_s == pytest.approx(1.3, abs=TOL)
     assert axes["m-lift"].idle_s == pytest.approx(0.7, abs=TOL)
     assert axes["m-lift"].utilisation == pytest.approx(0.65, abs=TOL)
@@ -151,6 +151,7 @@ def test_axis_busy_idle_and_utilisation() -> None:
     assert axes["m-pick"].busy_s == pytest.approx(pick, abs=TOL)
     assert axes["m-pick"].idle_s == pytest.approx(2.0 - pick, abs=TOL)
     assert axes["m-pick"].utilisation == pytest.approx(pick / 2.0, abs=TOL)
+    assert (axes["m-spare"].busy_s, axes["m-spare"].idle_s, axes["m-spare"].utilisation) == (0, 2, 0)
 
 
 def test_diagram_has_one_row_per_mechanism_and_fixed_step() -> None:
@@ -190,6 +191,8 @@ NOT_COMPUTABLE_CASES: list[tuple[str, Station, list[tuple[str, str | None, str |
      [("jerk_missing", None, "m", None)]),
     ("parallel_group_split", _station([_fixed("a", 1, 0.1, 7), _fixed("b", 2, 0.1), _fixed("c", 3, 0.1, 7)]),
      [("parallel_group_split", None, None, 7)]),
+    ("mechanism_overlap", _station([_move("a", 1, "m", 7), _move("b", 2, "m", 7)], [_axis("m")]),
+     [("mechanism_overlap", None, "m", 7)]),
 ]
 
 
@@ -298,10 +301,13 @@ def _stations(draw: st.DrawFn) -> Station:
     for block in range(draw(st.integers(1, 5))):
         size = draw(st.integers(1, 3))
         group = block + 1 if size > 1 or draw(st.booleans()) else None  # a group of one is allowed
+        available = list(mechanisms)  # one motion per physical axis within a parallel block
         for _ in range(size):
             order = len(steps) + 1
-            if mechanisms and draw(st.booleans()):
-                steps.append(_move(f"s{order}", order, draw(st.sampled_from(mechanisms)).id, group))
+            if available and draw(st.booleans()):
+                mechanism = draw(st.sampled_from(available))
+                available.remove(mechanism)
+                steps.append(_move(f"s{order}", order, mechanism.id, group))
             else:
                 steps.append(_fixed(f"s{order}", order, draw(st.floats(0.001, 10.0, **_POSITIVE)), group))
     return _station(list(draw(st.permutations(steps))), mechanisms)
@@ -407,3 +413,31 @@ def test_timing_is_deterministic(station: Station) -> None:
     first = station_timing(station)
     assert station_timing(station) == first
     assert station_timing(copy.deepcopy(station)).model_dump_json() == first.model_dump_json()
+
+
+@pytest.mark.parametrize("known_inputs", [False, True])
+def test_unused_mechanisms_report_zero_busy_and_full_cycle_idle(known_inputs):
+    mechanism = _axis("unused") if known_inputs else Mechanism(id="unused", kind="linear")
+    station = _station([_fixed("wait", 1, 1.5)], [mechanism])
+    timing = station_timing(station)
+    assert timing.cycle_time_s == pytest.approx(1.5)
+    assert len(timing.mechanisms) == 1
+    [axis] = timing.mechanisms
+    assert axis.mechanism_id == "unused"
+    assert (axis.busy_s, axis.idle_s, axis.utilisation) == (0, 1.5, 0)
+
+
+def test_cache_without_unused_axes_is_recomputed(storage):
+    from app.engines.bounds import BoundsTable
+    from app.engines.timing import TimingResult
+    from app.services.timing import timing_for
+
+    station = _station([_fixed("wait", 1, 1.5)], [Mechanism(id="unused", kind="linear")])
+    design = MachineDesign(name="Test", machine_type="test", summary="test", stations=[station])
+    pid = storage.create_project("Test", "Reply", design)
+    old = TimingResult(engine_version=2, bounds_version="fixture", stations=[
+        StationTiming(station_id="st", cycle_time_s=1.5)])
+    storage.put_result(pid, 1, "timing", 2, "fixture", old.model_dump_json())
+    result = timing_for(storage, pid, 1, table=BoundsTable(version="fixture", rows=[]))
+    assert [m.mechanism_id for m in result.stations[0].mechanisms] == ["unused"]
+    assert result.stations[0].mechanisms[0].idle_s == pytest.approx(1.5)

@@ -29,6 +29,19 @@ def search_query(part: SparePart) -> tuple[str, bool]:
     return " ".join(w for w in words if w).strip(), False
 
 
+def exact_part_match(part: SparePart, manufacturer: str | None, part_number: str | None) -> bool:
+    """Verify returned identity, including the manufacturer when the engineer specified it.
+
+    Missing vendor identity is unverified, not exact. Whitespace/case and part-number
+    punctuation are normalized as in the internal price-list match.
+    """
+    wanted = "".join(c for c in (part.part_number or "").upper() if c.isalnum())
+    returned = "".join(c for c in (part_number or "").upper() if c.isalnum())
+    return bool(wanted) and wanted == returned and (
+        not part.manufacturer or part.manufacturer.strip().casefold() == (manufacturer or "").strip().casefold()
+    )
+
+
 def parse_int(text: object) -> int | None:
     if text is None:
         return None

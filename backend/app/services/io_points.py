@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import re
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from app.models import Component, MachineDesign, Signals, Station
 
@@ -27,10 +27,13 @@ class IOPoint:
     component: Component
     unit: int           # 1-based index when the component quantity is > 1
     mechanism: str | None = None  # the station mechanism the component moves (`Component.motion`)
+    _variable: str | None = None
 
     @property
     def variable(self) -> str:
         """IEC 61131-3 identifier: letters, digits, single underscores."""
+        if self._variable is not None:
+            return self._variable
         name = re.sub(r"[^A-Za-z0-9]+", "_", self.tag).strip("_")
         return name if not name[0].isdigit() else f"_{name}"
 
@@ -122,6 +125,27 @@ def io_points(design: MachineDesign) -> list[IOPoint]:
                     suffix = f".{unit}" if component.quantity > 1 else ""
                     tag = f"{code}.{component.id}{suffix}.{kind.replace(' ', '')}{per_type[kind]}"
                     points.append(IOPoint(tag, kind, desc, station, component, unit, component.motion))
+    return _unique_variables(points)
+
+
+def _unique_variables(points: list[IOPoint]) -> list[IOPoint]:
+    """Keep existing identifiers unless punctuation erased a distinction, e.g. motor.1 / motor-1.
+
+    IEC identifiers are case-insensitive. Stable component ids and unit numbers decide which
+    point keeps its name, so reordering components cannot reassign their variables.
+    """
+    groups: dict[str, list[int]] = {}
+    for i, point in enumerate(points):
+        groups.setdefault(point.variable.casefold(), []).append(i)
+    taken = set(groups)
+    for indices in groups.values():
+        ordered = sorted(indices, key=lambda i: (points[i].component.id, points[i].unit, points[i].tag))
+        for i in ordered[1:]:
+            suffix = 2
+            while (candidate := f"{points[i].variable}_{suffix}").casefold() in taken:
+                suffix += 1
+            taken.add(candidate.casefold())
+            points[i] = replace(points[i], _variable=candidate)
     return points
 
 

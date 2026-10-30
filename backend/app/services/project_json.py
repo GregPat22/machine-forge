@@ -106,6 +106,8 @@ def import_project(storage: Storage, data: bytes, max_bytes: int = DEFAULT_MAX_I
     numbers = [r.number for r in file.revisions]
     if len(set(numbers)) != len(numbers) or min(numbers) < 1:
         raise ProjectImportError("Revision numbers must be unique and start at 1 or higher.")
+    if sorted(numbers) != list(range(1, len(numbers) + 1)):
+        raise ProjectImportError("Revision numbers must be consecutive from 1, with no missing revisions.")
     for message in file.messages:
         if message.revision is not None and message.revision not in numbers:
             raise ProjectImportError(f"A message refers to revision {message.revision}, which is not in the file.")
