@@ -2,6 +2,7 @@
 
 Stations and components are matched by their ids, which the AI keeps stable across revisions.
 A component that moves to another station is reported as modified ("station: A → B").
+The timing block compares the two revisions' stored timing results (ADR 0003, 0028).
 """
 
 from __future__ import annotations
@@ -11,6 +12,7 @@ from typing import Literal
 
 from pydantic import BaseModel
 
+from app.engines.timing import StationTiming, TimingResult, TimingWarning
 from app.models import Component, MachineDesign, Product, Signals, Station
 
 ChangeKind = Literal["added", "removed", "modified"]
@@ -55,6 +57,28 @@ class ComponentChange(BaseModel):
     fields: list[FieldChange] = []
 
 
+class StationTimingChange(BaseModel):
+    """A station whose cycle time, limiting step or warnings differ between the two revisions.
+
+    `None` before (after) when the station did not exist or was not computable.
+    """
+
+    station_id: str
+    cycle_time_s_before: float | None
+    cycle_time_s_after: float | None
+    limiting_step_before: str | None
+    limiting_step_after: str | None
+    warnings_added: list[TimingWarning] = []
+    warnings_removed: list[TimingWarning] = []
+
+
+class TimingDiff(BaseModel):
+    stations: list[StationTimingChange]
+    # Warnings no station owns (a transport's).
+    warnings_added: list[TimingWarning] = []
+    warnings_removed: list[TimingWarning] = []
+
+
 class DesignDiff(BaseModel):
     from_revision: int
     to_revision: int
@@ -63,6 +87,7 @@ class DesignDiff(BaseModel):
     stations: list[StationChange]
     components: list[ComponentChange]
     counts: dict[str, int]
+    timing: TimingDiff | None = None
 
 
 def _fmt(value: object) -> str | None:
@@ -168,3 +193,34 @@ def diff_designs(before: MachineDesign, after: MachineDesign, from_revision: int
     counts["machine_fields"] = len(machine) + len(lists)
     return DesignDiff(from_revision=from_revision, to_revision=to_revision, machine=machine, lists=lists,
                       stations=stations, components=components, counts=counts)
+
+
+def _warning_key(warning: TimingWarning) -> tuple[str | None, ...]:
+    """A warning is the same in both revisions when its code and every id it names are the same."""
+    return (warning.code, warning.station_id, warning.step_id, warning.mechanism_id, warning.transport_id,
+            warning.row_id)
+
+
+def _warning_changes(before: list[TimingWarning], after: list[TimingWarning]) -> tuple[list[TimingWarning], ...]:
+    old = {_warning_key(w) for w in before}
+    new = {_warning_key(w) for w in after}
+    return [w for w in after if _warning_key(w) not in old], [w for w in before if _warning_key(w) not in new]
+
+
+def diff_timing(before: TimingResult, after: TimingResult) -> TimingDiff:
+    """Per station: cycle time, limiting step and warnings, before and after. Unchanged stations are left out."""
+    old = {s.station_id: s for s in before.stations}
+    new = {s.station_id: s for s in after.stations}
+    empty = StationTiming(station_id="")
+    stations = []
+    for sid in dict.fromkeys([*new, *old]):
+        a, b = old.get(sid, empty), new.get(sid, empty)
+        added, removed = _warning_changes(a.warnings, b.warnings)
+        if (a.cycle_time_s, a.limiting_step_id) != (b.cycle_time_s, b.limiting_step_id) or added or removed:
+            stations.append(StationTimingChange(
+                station_id=sid, cycle_time_s_before=a.cycle_time_s, cycle_time_s_after=b.cycle_time_s,
+                limiting_step_before=a.limiting_step_id, limiting_step_after=b.limiting_step_id,
+                warnings_added=added, warnings_removed=removed,
+            ))
+    added, removed = _warning_changes(before.warnings, after.warnings)
+    return TimingDiff(stations=stations, warnings_added=added, warnings_removed=removed)

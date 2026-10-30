@@ -24,7 +24,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from app.engines.timing import BoundsField, TimingWarning
+from app.engines.timing import BoundsField, TimingWarning, UncheckedMechanism
 from app.models import ComponentCategory, MachineDesign, MechanismKind, TransportKind
 
 # The model's unit for each field: mechanism fields by mechanism kind, transport fields alone.
@@ -113,13 +113,6 @@ class BoundsTable(BaseModel):
         if duplicates:
             raise ValueError(f"duplicate row ids: {', '.join(duplicates)}")
         return self
-
-
-class UncheckedMechanism(BaseModel):
-    """A mechanism that no component drives, so no row can apply to it."""
-
-    station_id: str
-    mechanism_id: str
 
 
 class BoundsCheck(BaseModel):

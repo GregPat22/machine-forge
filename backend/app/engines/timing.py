@@ -33,6 +33,8 @@ from app.engines.motion import MotionError, MoveProfile, s_curve, trapezoidal
 from app.models import MachineDesign, Mechanism, Station, Step
 
 # Bumped whenever a formula or a rule of this engine changes, so stored results are recomputed.
+# A stored timing result also holds the bounds check (`app.engines.bounds`) and its merge
+# (`app.services.timing.compute_timing`): a change to either bumps this too.
 ENGINE_VERSION = 1
 
 ReasonCode = Literal[
@@ -132,11 +134,22 @@ class StationTiming(BaseModel):
         return self.cycle_time_s is not None
 
 
+class UncheckedMechanism(BaseModel):
+    """A mechanism that no component drives, so no plausibility bound can apply to it."""
+
+    station_id: str
+    mechanism_id: str
+
+
 class TimingResult(BaseModel):
     engine_version: int = ENGINE_VERSION
     # SHA-256 of the plausibility bounds table (section E); set by the service that reads it.
     bounds_version: str | None = None
     stations: list[StationTiming]
+    # Set by the service from the bounds check: a mechanism's warnings go to its station's
+    # `warnings`; a transport's warnings, which no station owns, go here.
+    warnings: list[TimingWarning] = []
+    unchecked: list[UncheckedMechanism] = []
 
 
 def design_timing(design: MachineDesign) -> TimingResult:

@@ -16,7 +16,8 @@ from app.llm import LLMError, LLMNotConfigured
 from app.llm.base import Progress, ProgressFn
 from app.models import MachineDesign, Project, ProjectSummary, Revision, SourcingReport, SparePart
 from app.services.designer import Designer, EditRejected, ProjectNotFound
-from app.services.diff import DesignDiff, diff_designs
+from app.engines.timing import TimingResult
+from app.services.diff import DesignDiff, diff_designs, diff_timing
 from app.services.documents import TechnicalDocument, build_document, to_docx, to_markdown
 from app.services.drawing import to_dxf, to_svg
 from app.services.layout import Layout, compute_layout
@@ -28,6 +29,7 @@ from app.services.plc import to_zip as plc_to_zip
 from app.services.rfq import build_rfq
 from app.services.sourcing import Sourcing
 from app.services.spare_parts import build_catalog, catalog_csv
+from app.services.timing import timing_for
 from app.storage import RevisionConflict
 
 router = APIRouter(tags=["projects"])
@@ -276,7 +278,18 @@ def layout_dxf(project_id: str, request: Request, revision: int | None = None) -
 def diff(project_id: str, request: Request, to: int | None = None, from_: int | None = Query(None, alias="from")) -> DesignDiff:
     after = _revision(request, project_id, to)
     before = _revision(request, project_id, from_ if from_ is not None else max(after.number - 1, 1))
-    return diff_designs(before.design, after.design, before.number, after.number)
+    storage = request.app.state.mf.storage
+    result = diff_designs(before.design, after.design, before.number, after.number)
+    result.timing = diff_timing(timing_for(storage, project_id, before.number),
+                                timing_for(storage, project_id, after.number))
+    return result
+
+
+@router.get("/projects/{project_id}/timing", response_model=TimingResult)
+def timing(project_id: str, request: Request, revision: int | None = None) -> TimingResult:
+    """The revision's timing (latest when omitted): stored, or computed on first read. No AI call."""
+    rev = _revision(request, project_id, revision)
+    return timing_for(request.app.state.mf.storage, project_id, rev.number)
 
 
 @router.get("/projects/{project_id}/plc", response_model=PlcProject)

@@ -40,7 +40,9 @@ not connected.
 - Mechanisms: one per moving axis of a station, linear (stroke in mm, speed in mm/s, \
 acceleration in mm/s2) or rotary (the same in degrees). Set the stroke the station needs. Set \
 max_speed and acceleration only from the catalog data of the drive or cylinder you chose, when \
-you are sure of it, and dwell_s only when the engineer stated the pause; else leave them null.
+you are sure of it, and dwell_s only when the engineer stated the pause; else leave them null. \
+Set profile to s_curve and jerk only from the catalog data of the chosen drive; else leave the \
+default profile and jerk null.
 - Steps: the ordered operations of a station. A motion step names its mechanism and has no \
 duration: the software computes it. A fixed_duration step is a time the process itself needs \
 (e.g. a sealing dwell or a curing time), with duration_s only when the engineer stated it; else \
