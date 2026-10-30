@@ -4,10 +4,35 @@ Three stations whose cycle time is worked out by hand in a spreadsheet and compa
 engine (Phase 2, `docs/specs/phase-2.md` section F). Every input is a public catalog or textbook
 value (engineering rule 12); every number below cites its source id from the table at the end.
 
-**Status (2026-10-29): sources only.** The inputs below have been searched and recorded. The
-spreadsheet `timing_stations.xlsx`, its `Calculation` and `Expected` tables, the expected values
-table of this README and the golden tests come with Phase 2 step 4, after the timing engine
-(step 3) is merged. Every input below has a source; none is `TODO(source)`.
+**Status (2026-10-30):** the sheet `timing_stations.xlsx` holds the three stations, their hand
+calculation and expected values; `tests/test_golden_timing.py` compares them with the engine. Every
+input has a source; none is `TODO(source)`.
+
+## The sheet
+
+`timing_stations.xlsx` is the data. It has one sheet per station (`pick_and_place`,
+`indexing_table`, `sealing_station`) and a `Sources` sheet. A station sheet starts with the station
+id and its target cycle time, then four tables, each a bold title in column A over a header row:
+
+- `Mechanisms`: one row per axis, every number followed by the id of its source.
+- `Steps`: one row per step in `(order, id)` order; a fixed duration has its source id.
+- `Calculation`: the hand calculation as spreadsheet formulas, one row per step: the profile case
+  that applies (the `Tv if max speed reached` column decides it, see "Formulas"), `Tj`, `Ta`,
+  `Tv`, the move time `2·Ta + Tv`, the duration (move plus dwell, or the fixed duration), start and
+  end. A block (one step, or the steps of one parallel group) starts at the end of the previous
+  block. `critical` marks the first longest member of each block.
+- `Expected`: each step's duration, the cycle time (the last end), the limiting step (the first
+  longest critical step, so a tie goes to the lower order) and the margin (target minus cycle),
+  all formulas over `Calculation`.
+
+The test reads the values the spreadsheet program last saved: openpyxl does not compute formulas.
+After editing the sheet, recompute and save it with a spreadsheet program, either
+`soffice --headless --convert-to xlsx --outdir <dir> timing_stations.xlsx` (LibreOffice) or open,
+recalculate and save it in Excel. The committed file was recomputed and saved by Microsoft Excel
+for Mac on 2026-10-30. Then update the table under "Expected values" from the sheet.
+
+The target cycle times are requirements chosen for this test, not catalog data. The indexing
+table's target is missed on purpose, so one station has a negative margin.
 
 ## Formulas
 
@@ -57,6 +82,11 @@ stroke, answer to open question 3). The `dwell_s` rule is covered by the step 3 
 
 `pp-x` is the triangular move: its stroke, 400 mm, is shorter than v²/a = 5000²/50000 = 500 mm.
 
+Station `st-pick-place`, target 1.0 s. Steps, in order: `pp-z-down-pick` (Z), `pp-grip-close`,
+`pp-z-up-pick` (Z), `pp-x-to-place` (X), `pp-z-down-place` (Z), `pp-grip-open`, then parallel
+group 1: `pp-x-to-pick` (X) with `pp-z-up-place` (Z). The two X moves last the same, so the
+limiting step is decided by the tie rule (lower order): `pp-x-to-place`.
+
 ### Indexing table
 
 A rotary axis with an S-curve profile, index angle 360°/stations, then two process steps of
@@ -75,7 +105,11 @@ No manufacturer's page read prints a jerk limit, so the axis takes all its limit
 printed S-curve example, read as degrees (ADR 0030). The book prints the move's times
 (Tj = 0.5503, Ta = 1.1006, Tv = 0), so the sheet's calculation for this axis has a printed check.
 The numbers have no unit in the book and make a slow move; the station checks the arithmetic, not a
-real table.
+real table. The sheet computes Tj = 0.550321, Ta = 1.100642, Tv = 0, which round to the printed
+times.
+
+Station `st-indexing-table`, target 2.0 s. Steps, in order: `it-index` (table), then parallel
+group 1: `it-grip-small` with `it-grip-large`.
 
 ### Sealing station
 
@@ -87,6 +121,40 @@ A linear lift, a heat-sealing dwell as a fixed step, the lift back.
 | | max_speed | 460 mm/s | "Max. speed [mm/s] ... 460" (size 40, spindle pitch 12.7) | S06 (p. 9) |
 | | acceleration | 10000 mm/s² | "Max. acceleration [m/s2] 10" | S06 (p. 9) |
 | step `seal-dwell` | duration_s | 0.5 s | "Recommended seal conditions: ... time : 0.5 – 1.0 s" (lower end) | S07 |
+
+Station `st-sealing`, target 1.2 s. Steps, in order: `seal-lift-down` (lift), `seal-dwell`,
+`seal-lift-up` (lift).
+
+## Expected values
+
+Copied from the sheet's `Expected` tables (seconds, six decimals);
+`tests/test_golden_timing.py::test_readme_table_matches_the_sheet` checks they agree.
+
+| Station | Quantity | Step | Value |
+|---|---|---|---|
+| `pick_and_place` | `duration_s` | `pp-z-down-pick` | 0.140000 |
+| `pick_and_place` | `duration_s` | `pp-grip-close` | 0.041000 |
+| `pick_and_place` | `duration_s` | `pp-z-up-pick` | 0.140000 |
+| `pick_and_place` | `duration_s` | `pp-x-to-place` | 0.178885 |
+| `pick_and_place` | `duration_s` | `pp-z-down-place` | 0.140000 |
+| `pick_and_place` | `duration_s` | `pp-grip-open` | 0.033000 |
+| `pick_and_place` | `duration_s` | `pp-x-to-pick` | 0.178885 |
+| `pick_and_place` | `duration_s` | `pp-z-up-place` | 0.140000 |
+| `pick_and_place` | `cycle_time_s` |  | 0.851771 |
+| `pick_and_place` | `limiting_step` |  | `pp-x-to-place` |
+| `pick_and_place` | `margin_s` |  | 0.148229 |
+| `indexing_table` | `duration_s` | `it-index` | 2.201285 |
+| `indexing_table` | `duration_s` | `it-grip-small` | 0.041000 |
+| `indexing_table` | `duration_s` | `it-grip-large` | 0.087000 |
+| `indexing_table` | `cycle_time_s` |  | 2.288285 |
+| `indexing_table` | `limiting_step` |  | `it-index` |
+| `indexing_table` | `margin_s` |  | -0.288285 |
+| `sealing_station` | `duration_s` | `seal-lift-down` | 0.263391 |
+| `sealing_station` | `duration_s` | `seal-dwell` | 0.500000 |
+| `sealing_station` | `duration_s` | `seal-lift-up` | 0.263391 |
+| `sealing_station` | `cycle_time_s` |  | 1.026783 |
+| `sealing_station` | `limiting_step` |  | `seal-dwell` |
+| `sealing_station` | `margin_s` |  | 0.173217 |
 
 ## Sources
 
