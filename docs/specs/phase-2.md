@@ -553,7 +553,7 @@ spreadsheet for the golden data.
    list in the report and does not have to check each source.
 
 Also decided in this spec: YAML with `pyyaml` as the plan names it, rather than TOML from the
-standard library; files under `backend/data/` and `backend/tests/golden/` so they sit next to the
+standard library; files under `backend/app/data/` and `backend/tests/golden/` so they sit next to the
 code that reads them; split parallel groups are reported by the engine, not rejected by the
 validator (that would reopen `patch.py`); bounds match on component category, mechanism kind and
 transport kind; no chart library.
