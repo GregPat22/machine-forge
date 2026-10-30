@@ -18,7 +18,7 @@ from app.models import (
 from app.services.spare_parts import build_catalog, normalize_pn
 from app.storage import Storage
 from app.suppliers import ConnectorError, SupplierConnector
-from app.suppliers.base import search_query
+from app.suppliers.base import exact_part_match, search_query
 
 # Days to deliver an offer that is in stock at the distributor.
 IN_STOCK_LEAD_DAYS = 3
@@ -158,6 +158,11 @@ class Sourcing:
     def _line(self, part: SparePart, offers: list[Offer], ratings: dict[str, SupplierRating]) -> SourcingLine:
         needed = part.quantity_in_machine + part.recommended_spares
         for offer in offers:
+            # Old cache entries can carry an exact label from a different manufacturer's query.
+            if not offer.is_current and offer.match == "exact" and not exact_part_match(
+                part, offer.manufacturer, offer.part_number
+            ):
+                offer.match = "similar"
             offer.unit_price_base = self._to_base(offer.unit_price, offer.currency)
             rating = ratings.get(offer.supplier.lower())
             if rating:

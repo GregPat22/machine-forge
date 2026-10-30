@@ -5,7 +5,7 @@ from __future__ import annotations
 import httpx
 
 from app.models import Offer, SparePart
-from app.suppliers.base import ConnectorError, parse_int, parse_price, search_query
+from app.suppliers.base import ConnectorError, exact_part_match, parse_int, parse_price, search_query
 
 BASE_URL = "https://api.mouser.com/api/v1"
 
@@ -57,7 +57,8 @@ class MouserConnector:
                     stock=parse_int(item.get("AvailabilityInStock")),
                     lead_time_days=parse_int(item.get("LeadTime")),
                     url=item.get("ProductDetailUrl"),
-                    match="exact" if by_pn else "similar",
+                    match="exact" if by_pn and exact_part_match(
+                        part, item.get("Manufacturer"), item.get("ManufacturerPartNumber")) else "similar",
                 )
             )
         return offers
