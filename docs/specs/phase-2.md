@@ -314,10 +314,20 @@ and the timing/diff endpoints without access to the source checkout (review fix 
   **Decided 2026-10-29 (ADR 0029):** no manufacturer's page read gives one; each pneumatic cylinder stroke is a
   fixed-duration step whose time is read from a manufacturer's full-stroke-time chart (SMC "Full
   Stroke Time & Stroke End Velocity"), with chart, page, load ratio and conditions cited.
+  **Done in step 6 (2026-11-01):** the cylinder times are read from the same SMC document's
+  Series CQ2 chart (front matter p. 37), whose 0 to 100 mm stroke scale fits the 40 and 50 mm
+  strokes better than the MB chart's 0 to 400 mm, at load ratio 50 %. The servo motor catalogs
+  give rpm, not axis speed, so each servo axis takes the printed limits of the first Festo axis in
+  the catalog's table whose maximum driving torque covers the servo's rated torque (film index:
+  EGC-HD-125-TB; punch: ESBF-50 with a 20 mm pitch). The film index length (120 mm) and the punch stroke (30 mm) are
+  demo format values, recorded like the process times. Step 7b's stroke test edits `m-film-index`
+  in `st-forming`, which is on the critical path.
 - `tests/test_migration_v2.py::test_mock_output_matches_its_v1_fixture` and
   `test_mock_refinements_match_their_v1_fixtures` get one listed exception: the exported
   `cycle_time_s` of the blister stations (it now comes from the engine). Every other field is still
   compared. This is a deliberate expectation change approved with this spec, not a loosening.
+  Step 6 extends it to the blister's new timing assumptions, which this section requires and which
+  `to_v1` exports; the v1 assumptions are still compared.
 - The cartoner, filling and assembly scenarios do not change.
 
 ### I. Frontend (UI: Greg approves a written plan before any UI code)

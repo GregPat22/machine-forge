@@ -16,7 +16,8 @@ def test_diff_reports_added_removed_and_modified() -> None:
     after.layout_style = "u_shape"
     after.open_questions.append("Which film width?")
     forming = next(s for s in after.stations if s.id == "st-forming")
-    forming.steps[0].duration_s = 1.0  # its derived cycle_time_s goes from 1.2 to 1.0
+    form = next(step for step in forming.steps if step.id == "st-forming-form")
+    form.duration_s = 0.5  # a fixed step: its derived cycle_time_s changes
     cylinder = next(c for c in forming.components if c.id == "forming-cyl")
     cylinder.quantity = 2
     cylinder.specs[0].value = "100 mm"

@@ -9,7 +9,10 @@ designer validates.
 The demo machines follow the rules of the system prompt where the data allows: every component
 has its signals and, where one fits, a role; moving axes are mechanisms, linked to the components
 that drive them, with a stroke only where a component spec states it and no speeds. Their steps
-are still one fixed-duration step per station (the v1 cycle times) until the Phase 2 timing engine.
+are one fixed-duration step per station (the v1 cycle times). The blister machine is the exception
+(Phase 2 spec, section H): its process stations have steps the timing engine computes, with servo
+axis limits from public catalogs, demo strokes for its two servo axes, cylinder stroke times read
+from a manufacturer's chart (ADR 0029) and demo process times, each recorded in its assumptions.
 """
 
 from __future__ import annotations
@@ -64,17 +67,75 @@ def _c(
     )
 
 
-def _station(cycle_time_s: float | None = None, **kw: Any) -> Station:
-    """A station; a known cycle time becomes one fixed-duration step and the target cycle time."""
-    steps = []
-    if cycle_time_s is not None:
-        steps = [Step(id=f"{kw['id']}-cycle", order=1, kind="fixed_duration", duration_s=cycle_time_s)]
+def _station(cycle_time_s: float | None = None, steps: list[Step] | None = None, **kw: Any) -> Station:
+    """A station; a known cycle time is the target cycle time and, without steps, one fixed-duration step."""
+    if steps is None:
+        steps = []
+        if cycle_time_s is not None:
+            steps = [Step(id=f"{kw['id']}-cycle", order=1, kind="fixed_duration", duration_s=cycle_time_s)]
     return Station(steps=steps, target_cycle_time_s=cycle_time_s, **kw)
 
 
-def _axis(mid: str, kind: str, stroke: float | None = None) -> Mechanism:
-    """A moving axis. Speed and acceleration stay unknown until a drive is chosen."""
-    return Mechanism(id=mid, kind=kind, stroke=stroke)  # type: ignore[arg-type]
+def _axis(mid: str, kind: str, stroke: float | None = None,
+          max_speed: float | None = None, acceleration: float | None = None) -> Mechanism:
+    """A moving axis. Speed and acceleration stay unknown until a drive is chosen, then come from its catalog."""
+    return Mechanism(id=mid, kind=kind, stroke=stroke,  # type: ignore[arg-type]
+                     max_speed=max_speed, acceleration=acceleration)
+
+
+def _move(sid: str, order: int, mechanism_id: str) -> Step:
+    return Step(id=sid, order=order, kind="motion", mechanism_id=mechanism_id)
+
+
+def _fixed(sid: str, order: int, duration_s: float) -> Step:
+    return Step(id=sid, order=order, kind="fixed_duration", duration_s=duration_s)
+
+
+# Blister timing inputs (Phase 2 spec, section H). Units: mm, mm/s, mm/s2, s.
+#
+# Servo axis limits: the demo names only the servo motors, whose catalogs give rpm, not axis speed.
+# Each servo drives a Festo axis: a toothed belt axis for the long, fast web index, a ball screw
+# cylinder for the short, high-force punch. The axis is the first entry of the catalog's data table
+# (sizes, then spindle pitches, in printed order) whose max. driving torque is at least the servo's
+# rated torque; its printed max. speed and acceleration are the limits.
+# - Film index (6 Nm servo): Festo, "Toothed belt axes EGC-HD-TB, with heavy-duty guide", datasheet,
+#   General technical data, p. 10, size 125: "Max. driving torque 7.2 Nm", "Max. speed EGC-...-GK
+#   3 m/s", "Max. acceleration 40 m/s2".
+#   https://ftp.festo.com/public/PNEUMATIC/SOFTWARE_SERVICE/Documentation/2026/EN_US/EGC_HD_TB_ENUS.PDF
+#   (read 2026-11-01).
+# - Punch (10 Nm servo): Festo, "Electric cylinders ESBF, with spindle drive", data sheet, Mechanical
+#   data - Ball screw, p. 7, size 50, spindle pitch 20 mm/rev: "Max. driving torque 16.3 Nm",
+#   "Max. speed 1.2 m/s", "Max. acceleration 25 m/s2" (every entry before it is below 10 Nm).
+#   https://ftp.festo.com/public/PNEUMATIC/SOFTWARE_SERVICE/Documentation/2026/EN_US/ESBF_ENUS.PDF
+#   (read 2026-11-01).
+FILM_INDEX_MAX_SPEED, FILM_INDEX_ACCELERATION = 3000.0, 40000.0
+PUNCH_MAX_SPEED, PUNCH_ACCELERATION = 1200.0, 25000.0
+# Demo format values, not catalog data: how far the web moves per cycle, how far the punch travels.
+FILM_INDEX_STROKE, PUNCH_STROKE = 120.0, 30.0
+# Pneumatic cylinder strokes are fixed-duration steps (ADR 0029). Full stroke times read from the chart
+# SMC, "Air Cylinders' Drive System, Full Stroke Time & Stroke End Velocity", Series CQ2, bore 80 and
+# 100 mm, front matter p. 37, with the valve, tubing and speed controller listed there for each bore
+# (conditions on front matter p. 30: 0.5 MPa, vertically upward, meter-out, needle fully opened; the
+# design's supply is 6 bar), load ratio 50 %, read to 0.01 s.
+# https://ca01.smcworld.com/catalog/BEST-Guide-en/pdf/1-m30-45_en.pdf (read 2026-11-01).
+# The demo's cylinders name Festo (kept, as in the v1 demo); the same time is used for the return stroke.
+FORMING_CYLINDER_STROKE_S = 0.43  # bore 80 mm, stroke 50 mm
+SEALING_CYLINDER_STROKE_S = 0.35  # bore 100 mm, stroke 40 mm
+# Demo process times, not catalog data.
+FORMING_TIME_S, SEALING_TIME_S, FEEDING_TIME_S = 0.2, 0.4, 1.2
+
+BLISTER_TIMING_ASSUMPTIONS = [
+    f"Demo process times, not catalog data: forming {FORMING_TIME_S} s, sealing {SEALING_TIME_S} s, "
+    f"brush feeding {FEEDING_TIME_S} s.",
+    f"Demo format values, not catalog data: film index {FILM_INDEX_STROKE:g} mm, punch stroke {PUNCH_STROKE:g} mm.",
+    "Cylinder strokes are fixed-duration steps read from chart (SMC, Full Stroke Time & Stroke End Velocity, "
+    "Series CQ2, front matter p. 37; 0.5 MPa, vertically upward, meter-out, load ratio 50 %): "
+    f"{FORMING_CYLINDER_STROKE_S} s for bore 80 mm and stroke 50 mm, {SEALING_CYLINDER_STROKE_S} s for bore "
+    "100 mm and stroke 40 mm, the same for the return stroke.",
+    f"Servo axis limits from Festo catalogs: film index EGC-HD-125-TB ({FILM_INDEX_MAX_SPEED / 1000:g} m/s, "
+    f"{FILM_INDEX_ACCELERATION / 1000:g} m/s2, datasheet p. 10), punch ESBF-50 with 20 mm pitch "
+    f"({PUNCH_MAX_SPEED / 1000:g} m/s, {PUNCH_ACCELERATION / 1000:g} m/s2, data sheet p. 7).",
+]
 
 
 def _belts(flow: list[str]) -> list[Transport]:
@@ -98,7 +159,13 @@ def _blister() -> list[Station]:
     return [
         _station(id="st-forming", name="Film unwind and forming", kind="process",
                  function="Unwinds PVC film, heats it and thermoforms the blister cavities", cycle_time_s=1.2,
-                 mechanisms=[_axis("m-film-index", "linear"), _axis("m-forming-lift", "linear", 50)],
+                 mechanisms=[_axis("m-film-index", "linear", FILM_INDEX_STROKE, FILM_INDEX_MAX_SPEED,
+                                   FILM_INDEX_ACCELERATION),
+                             _axis("m-forming-lift", "linear", 50)],
+                 steps=[_move("st-forming-index", 1, "m-film-index"),
+                        _fixed("st-forming-close", 2, FORMING_CYLINDER_STROKE_S),
+                        _fixed("st-forming-form", 3, FORMING_TIME_S),
+                        _fixed("st-forming-open", 4, FORMING_CYLINDER_STROKE_S)],
                  components=[
                      _c("forming-heater", "Contact heating plates", "heating", 2, {"power": "1.5 kW", "max temp": "160 C"},
                         role="actuator", io=_io(do=1), wear_part=True, criticality="A", recommended_spares=1),
@@ -109,6 +176,7 @@ def _blister() -> list[Station]:
                  ]),
         _station(id="st-feeding", name="Product feeding", kind="process",
                  function="Fills each cavity with one product", cycle_time_s=1.2,
+                 steps=[_fixed("st-feeding-cycle", 1, FEEDING_TIME_S)],
                  components=[
                      _c("feeder-brush", "Brush feeder", "dosing", 1, {"width": "250 mm"}, role="tooling", io=_io(),
                         wear_part=True, criticality="B", recommended_spares=1),
@@ -120,6 +188,9 @@ def _blister() -> list[Station]:
         _station(id="st-sealing", name="Lidding and sealing", kind="process",
                  function="Seals aluminium lidding foil onto the formed web", cycle_time_s=1.2,
                  mechanisms=[_axis("m-sealing-lift", "linear", 40)],
+                 steps=[_fixed("st-sealing-close", 1, SEALING_CYLINDER_STROKE_S),
+                        _fixed("st-sealing-seal", 2, SEALING_TIME_S),
+                        _fixed("st-sealing-open", 3, SEALING_CYLINDER_STROKE_S)],
                  components=[
                      _c("sealing-plate", "Heated sealing plate", "sealing", 1, {"power": "2 kW", "pattern": "knurled"},
                         role="tooling", io=_io(do=1), make_or_buy="make", wear_part=True, criticality="A",
@@ -130,7 +201,8 @@ def _blister() -> list[Station]:
                  ]),
         _station(id="st-cutting", name="Punching", kind="process",
                  function="Punches individual blisters out of the web", cycle_time_s=1.2,
-                 mechanisms=[_axis("m-punch", "linear")],
+                 mechanisms=[_axis("m-punch", "linear", PUNCH_STROKE, PUNCH_MAX_SPEED, PUNCH_ACCELERATION)],
+                 steps=[_move("st-cutting-down", 1, "m-punch"), _move("st-cutting-up", 2, "m-punch")],
                  components=[
                      _c("punch-tool", "Punching tool (format part)", "cutting", 1, {"material": "tool steel"},
                         role="tooling", io=_io(), make_or_buy="make", wear_part=True, criticality="A",
@@ -336,7 +408,8 @@ def demo_design(scenario: str = DEFAULT_SCENARIO) -> MachineDesign:
         stations=_with_envelopes([*process, *_infrastructure()]),
         transports=_belts([*(s.id for s in process), "st-outfeed"]),
         utilities=["400 V 3~ 50 Hz", "6 bar dry compressed air"],
-        assumptions=["Generated by the offline demo engine, not by an AI model."],
+        assumptions=["Generated by the offline demo engine, not by an AI model.",
+                     *(BLISTER_TIMING_ASSUMPTIONS if scenario == "blister" else [])],
         open_questions=["Axis speeds and accelerations are not set: which drives and cylinders, at what settings?"],
     )
 
