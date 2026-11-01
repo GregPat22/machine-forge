@@ -9,9 +9,10 @@ import ModelEditor from "../components/ModelEditor";
 import PlcView from "../components/PlcView";
 import RevisionsView from "../components/RevisionsView";
 import SparePartsView from "../components/SparePartsView";
+import TimingView from "../components/TimingView";
 import type { MachineDesign, Project } from "../types";
 
-const TABS = ["design", "model", "layout", "parts", "docs", "plc", "revisions"] as const;
+const TABS = ["design", "model", "timing", "layout", "parts", "docs", "plc", "revisions"] as const;
 type Tab = (typeof TABS)[number];
 
 export default function ProjectPage() {
@@ -43,6 +44,7 @@ export default function ProjectPage() {
   const tabs: [Tab, string][] = [
     ["design", "Design"],
     ["model", "Model"],
+    ["timing", "Timing"],
     ["layout", "3D layout"],
     ["parts", "Spare parts & suppliers"],
     ["docs", "Documents"],
@@ -79,8 +81,15 @@ export default function ProjectPage() {
 
         {tab === "design" && <DesignView design={design} onAsk={(q) => setDraft(q)} />}
         {tab === "model" && (
-          <ModelEditor project={project} design={design} readOnly={viewing !== null} onUpdated={onUpdated} />
+          <ModelEditor
+            project={project}
+            design={design}
+            revision={revision}
+            readOnly={viewing !== null}
+            onUpdated={onUpdated}
+          />
         )}
+        {tab === "timing" && <TimingView projectId={project.id} revision={revision} design={design} />}
         {tab === "layout" && <LayoutView projectId={project.id} revision={revision} design={design} />}
         {tab === "parts" && <SparePartsView projectId={project.id} revision={revision} />}
         {tab === "docs" && <DocumentsView projectId={project.id} revision={revision} />}

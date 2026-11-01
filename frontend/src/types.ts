@@ -54,6 +54,10 @@ export interface Mechanism {
   stroke: number | null;
   max_speed: number | null;
   acceleration: number | null;
+  /** Rest-to-rest move, deceleration equal to acceleration (schema version 3, ADR 0026). */
+  profile: "trapezoidal" | "s_curve";
+  /** mm/s³ or deg/s³; used only by `s_curve`. */
+  jerk: number | null;
   cam_profile: string | null;
   dwell_s: number | null;
 }
@@ -365,6 +369,104 @@ export interface DesignDiff {
     fields: FieldChange[];
   }[];
   counts: Record<string, number>;
+  /** The two revisions' stored timing results compared (ADR 0028). */
+  timing: TimingDiff | null;
+}
+
+// Mirrors backend/app/engines/timing.py: results, never part of the design (ADR 0003).
+
+export type NotComputableCode =
+  | "no_steps"
+  | "duration_missing"
+  | "mechanism_missing"
+  | "stroke_missing"
+  | "max_speed_missing"
+  | "acceleration_missing"
+  | "jerk_missing"
+  | "parallel_group_split"
+  | "mechanism_overlap";
+
+export interface NotComputableReason {
+  code: NotComputableCode;
+  step_id: string | null;
+  mechanism_id: string | null;
+  parallel_group: number | null;
+}
+
+export interface TimingWarning {
+  code: "target_not_met" | "out_of_bounds";
+  station_id: string | null;
+  step_id: string | null;
+  value: number;
+  limit: number;
+  mechanism_id: string | null;
+  transport_id: string | null;
+  field: "stroke" | "max_speed" | "acceleration" | "jerk" | "index_time_s" | "speed_mm_s" | null;
+  bound: "min" | "max" | null;
+  row_id: string | null;
+  source_title: string | null;
+  source_url: string | null;
+}
+
+export interface TimingBar {
+  step_id: string;
+  start_s: number;
+  end_s: number;
+  duration_s: number;
+  critical: boolean;
+  source: "trapezoidal" | "s_curve" | "fixed";
+}
+
+export interface TimingRow {
+  kind: "mechanism" | "fixed";
+  id: string;
+  bars: TimingBar[];
+}
+
+export interface MechanismTiming {
+  mechanism_id: string;
+  busy_s: number;
+  idle_s: number;
+  utilisation: number;
+}
+
+export interface StationTiming {
+  station_id: string;
+  cycle_time_s: number | null;
+  target_cycle_time_s: number | null;
+  margin_s: number | null;
+  limiting_step_id: string | null;
+  critical_path: string[];
+  mechanisms: MechanismTiming[];
+  diagram: TimingRow[];
+  warnings: TimingWarning[];
+  not_computable: NotComputableReason[];
+}
+
+export interface TimingResult {
+  engine_version: number;
+  bounds_version: string | null;
+  stations: StationTiming[];
+  /** Warnings no station owns (a transport's). */
+  warnings: TimingWarning[];
+  /** Mechanisms no component drives, so no bounds row applies to them. */
+  unchecked: { station_id: string; mechanism_id: string }[];
+}
+
+export interface StationTimingChange {
+  station_id: string;
+  cycle_time_s_before: number | null;
+  cycle_time_s_after: number | null;
+  limiting_step_before: string | null;
+  limiting_step_after: string | null;
+  warnings_added: TimingWarning[];
+  warnings_removed: TimingWarning[];
+}
+
+export interface TimingDiff {
+  stations: StationTimingChange[];
+  warnings_added: TimingWarning[];
+  warnings_removed: TimingWarning[];
 }
 
 export interface PlcProject {
