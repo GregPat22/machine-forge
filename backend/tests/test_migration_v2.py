@@ -10,7 +10,7 @@ from typing import get_args
 
 import pytest
 
-from app.llm.mock import _refine, demo_design
+from app.llm.mock import BLISTER_TIMING_ASSUMPTIONS, _refine, demo_design
 from app.migrations.design_v1 import CATEGORY_ROLES, ComponentCategoryV1, MachineDesignV1, migrate_design, to_v1
 from app.models import MachineDesign, Step
 from app.services.patch import PatchOp, apply_patches
@@ -154,6 +154,21 @@ def _without_demo_text(data: dict) -> dict:
     return {k: v for k, v in data.items() if k not in DEMO_TEXT_FIELDS}
 
 
+# Phase 2 spec, section H: the exported cycle_time_s of the blister process stations comes from the
+# timing engine, and the demo's timing inputs are recorded in its assumptions. Every other field is
+# still compared.
+BLISTER_PROCESS_STATIONS = {"st-forming", "st-feeding", "st-sealing", "st-cutting"}
+
+
+def _without_blister_timing(data: dict) -> dict:
+    stations = [
+        {k: v for k, v in s.items() if not (k == "cycle_time_s" and s["id"] in BLISTER_PROCESS_STATIONS)}
+        for s in data["stations"]
+    ]
+    assumptions = [a for a in data["assumptions"] if a not in BLISTER_TIMING_ASSUMPTIONS]
+    return {**data, "stations": stations, "assumptions": assumptions}
+
+
 @pytest.mark.parametrize("name", sorted(PROBLEMS))
 def test_mock_output_matches_its_v1_fixture(name: str) -> None:
     """The mock builds the same machines as the v1 mock did, picked by scenario id instead of text."""
@@ -161,7 +176,9 @@ def test_mock_output_matches_its_v1_fixture(name: str) -> None:
     expected = MachineDesignV1.model_validate(_raw(name)).model_dump()
     assert PROBLEMS[name] in expected["summary"] and PROBLEMS[name] not in exported["summary"]
     assert expected["open_questions"] == [] and len(exported["open_questions"]) == 1
-    assert _without_demo_text(exported) == _without_demo_text(expected)
+    assert _without_blister_timing(_without_demo_text(exported)) == _without_blister_timing(
+        _without_demo_text(expected)
+    )
 
 
 def test_mock_refinements_match_their_v1_fixtures() -> None:
@@ -171,10 +188,10 @@ def test_mock_refinements_match_their_v1_fixtures() -> None:
     initial = demo_design("blister")
     u_shaped = apply_patches(initial, [PatchOp(op="set_param", name="layout_style", text="u_shape")]).design
     assert u_shaped is not None
-    assert to_v1(u_shaped).model_dump() == {
+    assert _without_blister_timing(to_v1(u_shaped).model_dump()) == _without_blister_timing({
         **MachineDesignV1.model_validate(_raw("blister-u-shape")).model_dump(),
         **{field: getattr(initial, field) for field in DEMO_TEXT_FIELDS},
-    }
+    })
 
     expected = _without_demo_text(MachineDesignV1.model_validate(_raw("blister-vision")).model_dump())
     design = initial
@@ -187,4 +204,6 @@ def test_mock_refinements_match_their_v1_fixtures() -> None:
         # A patch appends a new station; the v1 mock sorted the list by sequence. In v2 the list
         # order carries no meaning (sequence is derived), so put it in the v1 mock's order.
         exported.stations.sort(key=lambda s: (s.sequence == 0, s.sequence))
-        assert _without_demo_text(exported.model_dump()) == {**expected, "layout_style": layout}
+        assert _without_blister_timing(_without_demo_text(exported.model_dump())) == _without_blister_timing(
+            {**expected, "layout_style": layout}
+        )
