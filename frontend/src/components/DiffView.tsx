@@ -1,12 +1,33 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
-import type { DesignDiff, FieldChange } from "../types";
+import type { DesignDiff, FieldChange, TimingWarning } from "../types";
+import { seconds, WARNING_LABEL, warningText } from "./timingText";
 
 const BADGE = {
   added: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300",
   removed: "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300",
   modified: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300",
 };
+
+/** A cycle time in the diff; null when the station did not exist or was not computable. */
+const cycleText = (s: number | null) => (s === null ? "not computable" : seconds(s));
+
+function WarningChanges({ added, removed }: { added: TimingWarning[]; removed: TimingWarning[] }) {
+  return (
+    <>
+      {added.map((w, i) => (
+        <div key={`+${i}`} className="text-red-600">
+          + {WARNING_LABEL[w.code]}: {warningText(w)}
+        </div>
+      ))}
+      {removed.map((w, i) => (
+        <div key={`-${i}`} className="text-emerald-700 dark:text-emerald-400">
+          − {WARNING_LABEL[w.code]}: {warningText(w)}
+        </div>
+      ))}
+    </>
+  );
+}
 
 function Fields({ fields }: { fields: FieldChange[] }) {
   if (fields.length === 0) return null;
@@ -40,7 +61,11 @@ export default function DiffView({ projectId, from, to }: { projectId: string; f
 
   if (error) return <p className="text-xs text-red-600">{error}</p>;
   if (!diff) return <p className="text-xs text-slate-500">Comparing…</p>;
-  const empty = !diff.machine.length && !diff.lists.length && !diff.stations.length && !diff.components.length;
+  const timing = diff.timing;
+  const timingChanged =
+    !!timing && (timing.stations.length > 0 || timing.warnings_added.length > 0 || timing.warnings_removed.length > 0);
+  const empty =
+    !diff.machine.length && !diff.lists.length && !diff.stations.length && !diff.components.length && !timingChanged;
   if (empty) return <p className="text-xs text-slate-500">No changes between r{from} and r{to}.</p>;
 
   const c = diff.counts;
@@ -100,6 +125,47 @@ export default function DiffView({ projectId, from, to }: { projectId: string; f
                 <Fields fields={comp.fields} />
               </li>
             ))}
+          </ul>
+        </div>
+      )}
+      {timing && timingChanged && (
+        <div data-testid="diff-timing">
+          <h4 className="mb-1 text-xs font-semibold text-slate-500 uppercase">Timing</h4>
+          <ul className="space-y-1.5">
+            {timing.stations.map((t) => (
+              <li key={t.station_id} data-testid={`diff-timing-${t.station_id}`}>
+                <span className="font-mono text-xs">{t.station_id}</span>
+                <div className="mt-0.5 space-y-0.5 text-xs text-slate-600 dark:text-slate-300">
+                  {t.cycle_time_s_before === t.cycle_time_s_after ? (
+                    <div>
+                      <span className="text-slate-400">cycle:</span> {cycleText(t.cycle_time_s_after)} (unchanged)
+                    </div>
+                  ) : (
+                    <div>
+                      <span className="text-slate-400">cycle:</span>{" "}
+                      <span className="text-red-600 line-through decoration-red-400/60">{cycleText(t.cycle_time_s_before)}</span>
+                      {" → "}
+                      <span className="text-emerald-700 dark:text-emerald-400">{cycleText(t.cycle_time_s_after)}</span>
+                    </div>
+                  )}
+                  {t.limiting_step_before !== t.limiting_step_after && (
+                    <div>
+                      <span className="text-slate-400">limiting step:</span> {t.limiting_step_before ?? "—"} →{" "}
+                      {t.limiting_step_after ?? "—"}
+                    </div>
+                  )}
+                  <WarningChanges added={t.warnings_added} removed={t.warnings_removed} />
+                </div>
+              </li>
+            ))}
+            {(timing.warnings_added.length > 0 || timing.warnings_removed.length > 0) && (
+              <li data-testid="diff-timing-line">
+                Line (transports)
+                <div className="mt-0.5 space-y-0.5 text-xs">
+                  <WarningChanges added={timing.warnings_added} removed={timing.warnings_removed} />
+                </div>
+              </li>
+            )}
           </ul>
         </div>
       )}

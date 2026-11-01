@@ -16,6 +16,7 @@ import type {
   SupplierInfo,
   TechnicalDocument,
   TemplateStatus,
+  TimingResult,
 } from "./types";
 
 async function errorDetail(response: Response): Promise<string> {
@@ -121,6 +122,7 @@ export const api = {
   documents: (id: string, revision: number) => request<TechnicalDocument>(`/projects/${id}/documents?${rev(revision)}`),
   documentUrl: (id: string, revision: number, format: "docx" | "md") =>
     `/api/projects/${id}/documents.${format}?${rev(revision)}`,
+  timing: (id: string, revision: number) => request<TimingResult>(`/projects/${id}/timing?${rev(revision)}`),
   plc: (id: string, revision: number) => request<PlcProject>(`/projects/${id}/plc?${rev(revision)}`),
   plcFileUrl: (id: string, revision: number, format: "zip" | "xml") => `/api/projects/${id}/plc.${format}?${rev(revision)}`,
   sourcing: (id: string, revision: number, external: boolean) =>

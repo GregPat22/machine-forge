@@ -1,4 +1,4 @@
-import { createContext, Fragment, useContext, useState, type FormEvent, type ReactNode } from "react";
+import { createContext, Fragment, useContext, useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { api, PatchRejected, RevisionConflict } from "../api";
 import type {
   Component,
@@ -10,9 +10,11 @@ import type {
   Signals,
   Station,
   StationIn,
+  StationTiming,
   Step,
   Transport,
 } from "../types";
+import { notComputableText, seconds } from "./timingText";
 
 // The structured model editor (Phase 1, section G). Every save sends patch operations to the same
 // endpoint and validator the AI goes through (`POST /api/projects/{id}/patches`) and makes a new
@@ -24,6 +26,7 @@ import type {
 const STATION_KINDS = ["process", "transport", "inspection", "control", "frame", "safety", "utility"] as const;
 const TRANSPORT_KINDS = ["belt", "indexing", "rotary", "pick_place", "gravity"] as const;
 const MECHANISM_KINDS = ["linear", "rotary"] as const;
+const PROFILES = ["trapezoidal", "s_curve"] as const;
 const STEP_KINDS = ["fixed_duration", "motion"] as const;
 const ROLES = ["actuator", "sensor", "drive", "controller", "tooling", "structure", "consumable"] as const;
 // prettier-ignore
@@ -387,6 +390,8 @@ const mechanismFields: Field<Mechanism>[] = [
   field("stroke", "Stroke", "number", { hint: "mm or deg" }),
   field("max_speed", "Max speed", "number", { hint: "mm/s or deg/s" }),
   field("acceleration", "Acceleration", "number", { hint: "mm/s² or deg/s²" }),
+  field("profile", "Profile", "select", { options: PROFILES }),
+  field("jerk", "Jerk", "number", { hint: "mm/s³ or deg/s³, S-curve only" }),
   field("dwell_s", "Dwell", "number", { hint: "s" }),
   field("cam_profile", "Cam profile id", "optional_text"),
 ];
@@ -480,7 +485,8 @@ function stationEdits(station: Station, after: StationFields): PatchOp[] {
 
 // --- Stations ----------------------------------------------------------------------------------
 
-function StationCard({ station }: { station: Station }) {
+/** `timing` is the station's timing result; undefined while it loads. */
+function StationCard({ station, timing }: { station: Station; timing: StationTiming | undefined }) {
   const { revision, save, busy, readOnly } = useContext(EditorContext);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -532,8 +538,12 @@ function StationCard({ station }: { station: Station }) {
                 <Item label="Sequence (derived from the transports)">
                   {station.sequence > 0 ? station.sequence : "not in the product flow"}
                 </Item>
-                <Item label="Cycle time (derived from fixed-duration steps)">
-                  {station.cycle_time_s === null ? "not computable yet" : `${station.cycle_time_s} s`}
+                <Item label="Cycle time (timing engine)">
+                  <span data-testid={`station-cycle-${sid}`}>
+                    {station.cycle_time_s !== null
+                      ? seconds(station.cycle_time_s)
+                      : ((timing && notComputableText(timing.not_computable)) ?? "not computable")}
+                  </span>
                 </Item>
               </dl>
             )}
@@ -591,6 +601,8 @@ function StationCard({ station }: { station: Station }) {
                 label: "Acceleration",
                 render: (m) => show(m.acceleration, m.kind === "linear" ? " mm/s²" : " deg/s²"),
               },
+              { label: "Profile", render: (m) => m.profile },
+              { label: "Jerk", render: (m) => show(m.jerk, m.kind === "linear" ? " mm/s³" : " deg/s³") },
               { label: "Dwell", render: (m) => show(m.dwell_s, " s") },
             ]}
             fields={mechanismFields}
@@ -600,6 +612,8 @@ function StationCard({ station }: { station: Station }) {
               stroke: null,
               max_speed: null,
               acceleration: null,
+              profile: "trapezoidal",
+              jerk: null,
               cam_profile: null,
               dwell_s: null,
             })}
@@ -753,13 +767,25 @@ function AddStation() {
 interface Props {
   project: Project;
   design: MachineDesign;
+  /** The revision shown: the latest, or an older one when `readOnly`. */
+  revision: number;
   /** Viewing an older revision: shown, not editable. */
   readOnly: boolean;
   onUpdated: (project: Project) => void;
 }
 
-export default function ModelEditor({ project, design, readOnly, onUpdated }: Props) {
+export default function ModelEditor({ project, design, revision, readOnly, onUpdated }: Props) {
   const [busy, setBusy] = useState(false);
+  // The timing result gives a not-computable station its reasons (Phase 2, section I).
+  const [timing, setTiming] = useState<Map<string, StationTiming> | null>(null);
+  useEffect(() => {
+    let obsolete = false;
+    setTiming(null);
+    api.timing(project.id, revision)
+      .then((r) => { if (!obsolete) setTiming(new Map(r.stations.map((st) => [st.station_id, st]))); })
+      .catch(() => { if (!obsolete) setTiming(null); }); // the header then says only "not computable"
+    return () => { obsolete = true; };
+  }, [project.id, revision]);
   const [conflict, setConflict] = useState(false);
   const [reloadError, setReloadError] = useState<string | null>(null);
   const stationIds = design.stations.map((s) => s.id);
@@ -824,7 +850,7 @@ export default function ModelEditor({ project, design, readOnly, onUpdated }: Pr
             <AddStation />
           </div>
           {design.stations.map((s) => (
-            <StationCard key={s.id} station={s} />
+            <StationCard key={s.id} station={s} timing={timing?.get(s.id)} />
           ))}
         </section>
 
