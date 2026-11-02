@@ -1,6 +1,6 @@
 # Machine Forge
 
-**Vibe-code automatic machines.** Describe a production problem ("pack 300 tablets per minute into
+**AI automatic machines design.** Describe a production problem ("pack 300 tablets per minute into
 blisters"), get a first machine design, and refine it by prompting until it's right. Every
 revision comes with a **spare-parts catalog**, and each part is compared across **your current
 suppliers and external vendors** to find the best offer.
