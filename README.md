@@ -7,8 +7,9 @@ suppliers and external vendors** to find the best offer.
 
 Think special-purpose machines: packaging, filling, assembly, inspection.
 
-> Status: **Phases 0 and 1 done. Phase 2 (timing engine) in progress, see
-> [docs/PLAN.md](docs/PLAN.md) and [docs/specs/phase-2.md](docs/specs/phase-2.md).** The project was
+> Status: **Phases 0 and 1 done. Phase 2 (timing engine): every step is merged; it is done when
+> Greg has checked its done criteria in the running app, see [docs/PLAN.md](docs/PLAN.md) and
+> [docs/specs/phase-2.md](docs/specs/phase-2.md).** The project was
 > redefined on 2026-10-21: AI-assisted concept engineering with real timing, throughput,
 > geometry, BOM and cost, simulated before anything is built. The v0.3 design loop, revisions and
 > diffs, concept 3D, 2D top view (SVG/DXF), technical documents, PLC skeleton, spare-parts catalog
@@ -16,7 +17,9 @@ Think special-purpose machines: packaging, filling, assembly, inspection.
 > it drew cabinets, hardware and products the model knew nothing about (see
 > [ADR 0009](docs/adr/0009-geometry-as-data-scene-json.md)). Since Phase 1 the model can carry
 > simulation data (product, process graph, mechanisms, steps) and the AI edits it in small checked
-> steps. Simulation, an honest 3D view and the module library arrive with Phases 2 to 5.
+> steps. Since Phase 2 each station's cycle time is computed from its mechanisms and steps and
+> shown as a timing diagram. Throughput simulation, an honest 3D view and the module library
+> arrive with Phases 3 to 5.
 
 ## What works today
 
@@ -200,8 +203,8 @@ docs/                    PLAN (read first), engineering-rules, specs/ (one per p
 The plan from here is `docs/PLAN.md`, section 5:
 
 - [x] Phase 0: cleanup and guardrails — done 2026-10-21
-- [ ] Phase 1: model v2 (product, process graph, mechanisms, structured roles), patch-based AI edits, OpenAI + Gemini providers
-- [ ] Phase 2: timing engine (motion profiles → cycle time → timing diagram)
+- [x] Phase 1: model v2 (product, process graph, mechanisms, structured roles), patch-based AI edits, OpenAI + Gemini providers — done 2026-10-29
+- [ ] Phase 2: timing engine (motion profiles → cycle time → timing diagram) — all steps merged, Greg's check in the running app pending
 - [ ] Phase 3: throughput engine (discrete-event, SimPy) with results diffed per revision
 - [ ] Phase 4: editable layout, scene JSON, react-three-fiber viewer, simulation playback
 - [ ] Phase 5: module library, STEP → glTF and Excel BOM import

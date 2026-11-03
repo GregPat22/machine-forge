@@ -51,6 +51,28 @@ titles in `rfq.py`, and `plc.py:352` (filters on generated station codes, not la
   planning Phase 1 step 7). Needs a spec that reopens `services/patch.py`, with its property
   tests.
 
+## Timing (Phase 2)
+
+Found while writing and building Phase 2 (`docs/specs/phase-2.md`), out of its scope.
+
+- `backend/app/services/plc.py:230`: the station comment says "Target cycle time" but prints
+  `station.cycle_time_s`, which is now the cycle computed by the timing engine, not the target.
+  `plc.py` is frozen, so the label stays until a spec reopens it (spec section D).
+- `backend/app/services/patch.py`: the validator accepts a `parallel_group` whose members are not
+  next to each other in `order`. The timing engine reports the station as not computable
+  (`parallel_group_split`) instead. Rejecting it in the validator reopens `patch.py` and its
+  property tests.
+- A motion step always moves its mechanism through one full stroke. The model has no field for a
+  shorter move, so a step cannot move part of a stroke (spec "Out of scope": partial strokes).
+- `backend/app/data/catalog_bounds.yaml`, rows still without a public source, so they give no
+  warning: `pneumatic-cylinder-linear-acceleration` (no pneumatic catalog read prints an
+  acceleration; cylinders are fixed steps, ADR 0029) and `servo-rotary-axis-acceleration` (no
+  rotary module catalog read prints an angular acceleration). There is no jerk row: no
+  manufacturer's page read states a maximum jerk.
+- `backend/app/llm/prompts.py`: a pneumatic cylinder stroke is a fixed-duration step whose time
+  the engineer reads from a manufacturer's chart (ADR 0029), but nothing in the prompt stops the AI
+  from proposing that time itself. Needs a prompt change, approved with a spec.
+
 ## Docs to update
 
 - `README.md`, roadmap lines for Phases 4 and 5: still the summary from before ADRs 0016 and 0017.

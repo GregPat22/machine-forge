@@ -5,7 +5,8 @@ frontend (React + Vite)  ──/api──>  backend (FastAPI)
                                       ├── Designer      prompting loop, repair loop, model editor, revisions
                                       │     ├── LLMProvider  anthropic | openai | gemini | openai_compatible | mock
                                       │     └── patch     patch operations -> checked new design, or errors
-                                      ├── diff          revision a vs b -> stations, components, transports, steps changed
+                                      ├── diff          revision a vs b -> stations, components, transports, steps, timing changed
+                                      ├── timing        revision -> stored timing result (engines below), computed on first read
                                       ├── layout        design -> layout (boxes, flow line) -> drawing (SVG/DXF)
                                       ├── documents     design -> technical description (+ .docx / .md, company template)
                                       ├── io_points     design -> estimated I/O points (documents, PLC)
@@ -15,7 +16,11 @@ frontend (React + Vite)  ──/api──>  backend (FastAPI)
                                       ├── Sourcing      catalog x (your price list + connectors) -> comparison
                                       │     └── SupplierConnector  mouser | nexar | ...
                                       ├── project_json  project <-> versioned JSON file (export/import)
-                                      └── Storage       SQLite: projects, revisions, chat, price list, offer cache
+                                      ├── Storage       SQLite: projects, revisions, chat, results, price list, offer cache
+                                      └── engines       pure functions, no I/O
+                                            ├── motion    stroke, speed, acceleration (, jerk) -> move time and profile
+                                            ├── timing    station -> cycle time, limiting step, axis use, timing diagram
+                                            └── bounds    design x catalog table -> plausibility warnings
 ```
 
 ## The machine model is the source of truth
@@ -48,10 +53,11 @@ What the model holds (v2):
   fixed duration), `target_cycle_time_s`, components.
 - **Component**: structured `role`, `signals` (DI/DO/AI/AO/axes/fieldbus counts), `motion` link to
   a mechanism.
-- **Derived values** (ADR 0012): `Station.sequence` (position along the process graph) and
-  `Station.cycle_time_s` (sum of fixed-duration steps, null when a step is a motion or runs in
-  parallel) are plain Python properties. They are not stored, not sent to the AI and cannot be
-  set by a patch; current readers, including the frozen `plc.py`, read them unchanged.
+- **Derived values** (ADR 0012, extended by ADR 0027): `Station.sequence` (position along the
+  process graph) and `Station.cycle_time_s` (the station's cycle from the timing engine, null when
+  the station is not computable) are plain Python properties. They are not stored, not sent to the
+  AI and cannot be set by a patch; current readers, including the frozen `plc.py`, read them
+  unchanged.
 
 Every revision is a complete snapshot: you can view, diff or restore any of them. Ids are kept
 stable across revisions (patches refer to them), so revisions can be compared item by item.
@@ -66,6 +72,60 @@ The model avoids JSON-schema features that strict structured-output modes reject
 numeric bounds, recursion). Specs and parameters are lists of `{name, value}` pairs for that
 reason, and bounds are checked in code by the patch validator. `app/schema.py` tightens the
 Pydantic schema (all properties required, `additionalProperties: false`).
+
+## Engines
+
+`backend/app/engines/` holds the computations the AI must never guess (rule 3). They are pure
+functions over numbers or over the model: no I/O, no randomness, every formula cited in its
+docstring, and an unhandled case raises instead of approximating (rule 5). A repo-rules test
+(`test_engines_do_no_io`) fails if a file there imports one of a fixed list of I/O modules
+(`sqlite3`, `httpx`, `yaml`, `pathlib`, `os`, `app.storage`, `app.llm`), calls `open(`, or has an
+`except` whose body is only `pass`. It does not catch every kind of I/O; a reviewer still checks.
+
+- **Motion** (`engines/motion.py`): one rest-to-rest move with deceleration equal to acceleration.
+  `trapezoidal(distance, max_speed, acceleration)` and `s_curve(distance, max_speed, acceleration,
+  jerk)` (seven segments, jerk-limited). The trapezoidal profile handles the case where the speed
+  is never reached; the S-curve also handles the cases where the acceleration, or both, are never
+  reached (Biagiotti and Melchiorri 2008, sections 3.2 and 3.4). The result
+  gives the move time, the peak speed and acceleration, the phase times, and evenly spaced samples
+  for the Phase 4 animation. Rotary axes use the same functions in degrees. Zero, negative or
+  non-finite inputs raise `MotionError`.
+- **Timing** (`engines/timing.py`, ADR 0027): `station_timing(station)` and
+  `design_timing(design)`. Steps sorted by `(order, id)` form blocks: a step on its own, or all the
+  steps of one `parallel_group`. Blocks run one after another and each lasts as long as its longest
+  member (the critical path, Kelley and Walker 1959). A fixed step lasts its `duration_s`; a motion
+  step lasts one full stroke of its mechanism with the mechanism's profile, plus its `dwell_s`. The
+  result per station: cycle time, critical path, limiting step, busy and idle time and utilisation
+  per axis, the timing diagram (one row per axis and per fixed step), the margin to
+  `target_cycle_time_s` and a `target_not_met` warning. A station with missing values
+  (`stroke_missing`, `duration_missing`, ...) or a plan the engine cannot lay out
+  (`parallel_group_split`, `mechanism_overlap`) is not computable: a normal result listing every
+  reason with a fixed code. A value the patch validator forbids (zero, negative) that still reaches
+  the engine raises `TimingError`. `ENGINE_VERSION` is bumped whenever a formula or rule changes.
+- **Bounds** (`engines/bounds.py`): `check_bounds(design, table)` compares mechanism and transport
+  values with a table of public catalog limits, matched by component category, mechanism kind and
+  transport kind, never by name. A value outside a row gives an `out_of_bounds` warning naming the
+  row and its source; the design is never corrected. The table is
+  `backend/app/data/catalog_bounds.yaml`, shipped as package data and read only by
+  `services/bounds.py` (`yaml.safe_load`, validated on load). A row is active only when it has a
+  source title, a source URL and a `min` or `max`; it then cites the manufacturer's page and the
+  value as printed. Rows still marked `TODO(source)` are inactive and give no warning. The table's
+  version is the SHA-256 of the file.
+
+Results are revision data (ADR 0003, ADR 0028). `services/timing.py` runs the timing engine and
+the bounds check together the first time a revision's timing is read, and stores the result in
+the `revision_results` table with the engine version and the bounds table version. A stored result
+whose versions still match is returned as it is; an older one is recomputed and replaced. The
+revision's design is never changed, and recomputing gives the same JSON. Nothing calls the AI on
+this path. `GET /api/projects/{id}/timing?revision=N` returns the result, and the revision diff
+gains a `timing` block: for each station whose timing changed, cycle time and limiting step
+before and after and warnings added and removed, plus machine-level (transport) warnings added and
+removed. The frontend shows it in the Timing tab (`components/TimingView.tsx`: a timing diagram in
+SVG for each station that has one, the cycle-time check and the warnings).
+
+The golden stations in `backend/tests/golden/` (pick-and-place, indexing table, sealing station)
+check the engine against a hand calculation in a spreadsheet, with every input from a public
+source; see the README there.
 
 ## Live progress
 
