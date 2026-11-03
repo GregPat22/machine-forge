@@ -56,7 +56,7 @@ Before starting, read docs/PLAN.md, docs/engineering-rules.md, the spec for the 
 - One concern per change. Do only what the spec says.
 - Do not touch anything the task did not list, including frozen modules.
 - If a change involves the schema (models.py), the prompts or the viewer, present an implementation plan and wait for my explicit approval before modifying any files.
-- Before committing, show the relevant diff and wait for my explicit approval. Silence is never approval: if I have not clearly said yes, do not proceed.
+- Commit and push freely to your own branch and open a draft PR. Never push to or merge into main. Ask before rewriting pushed history or changing CI, workflow, or agent-rule files.
 - Run the relevant tests and show the actual commands, their output and their exit codes.
 - Distinguish failures you introduced from failures that already existed. Before calling a failure pre-existing, show evidence, for example the same failure on a clean checkout of the base branch (git stash is shared between worktrees, so use a temporary worktree or checkout, not bare git stash).
 - Never replace test evidence with a general statement that tests passed.
