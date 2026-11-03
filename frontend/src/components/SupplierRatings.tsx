@@ -8,7 +8,7 @@ function Stars({ value, onChange }: { value: number | null; onChange: (v: number
       {[1, 2, 3, 4, 5].map((n) => (
         <button
           key={n}
-          className={`px-0.5 text-base leading-none ${value !== null && n <= value ? "text-amber-500" : "text-slate-300 dark:text-slate-600"}`}
+          className={`px-0.5 text-base leading-none ${value !== null && n <= value ? "text-brand-600" : "text-slate-300 dark:text-slate-600"}`}
           title={`${n} of 5`}
           onClick={() => onChange(value === n ? null : n)}
         >
@@ -105,7 +105,7 @@ export default function SupplierRatings({ refreshKey }: { refreshKey: number }) 
                 </td>
                 <td className="td">
                   <input
-                    className="w-full rounded border border-transparent bg-transparent px-1 py-0.5 text-sm hover:border-slate-300 focus:border-amber-500 focus:outline-none dark:hover:border-slate-700"
+                    className="w-full rounded border border-transparent bg-transparent px-1 py-0.5 text-sm hover:border-slate-300 focus:border-brand-600 dark:hover:border-slate-700"
                     defaultValue={s.notes ?? ""}
                     placeholder="—"
                     onBlur={(e) => e.target.value !== (s.notes ?? "") && save(s, { notes: e.target.value || null })}

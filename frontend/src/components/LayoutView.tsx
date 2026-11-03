@@ -57,8 +57,9 @@ export default function LayoutView({ projectId, revision, design }: Props) {
           {MODES.map(([key, label]) => (
             <button
               key={key}
+              aria-pressed={mode === key}
               onClick={() => choose(key)}
-              className={`rounded px-3 py-1 text-sm ${mode === key ? "bg-amber-500 font-medium text-slate-950" : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"}`}
+              className={`rounded px-3 py-1 text-sm ${mode === key ? "bg-brand-600 font-medium text-white" : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"}`}
             >
               {label}
             </button>

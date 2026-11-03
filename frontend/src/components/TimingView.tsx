@@ -110,14 +110,14 @@ function Diagram({ st, mechanisms }: { st: StationTiming; mechanisms: Mechanism[
             y={top + 4}
             width={x1 - x0}
             height={ROW - 6}
-            className={bar.critical ? "fill-amber-500" : "fill-slate-300 dark:fill-slate-600"}
+            className={bar.critical ? "fill-brand-600" : "fill-slate-300 dark:fill-slate-600"}
           >
             <title>{barSource(bar, row, mechanisms)}</title>
           </rect>
           <text
             x={lx}
             y={inside ? top + 18 : top + ROW + 10}
-            className="pointer-events-none fill-slate-800 font-mono text-[11px] dark:fill-slate-200"
+            className={`pointer-events-none font-mono text-[11px] ${inside && bar.critical ? "fill-white" : "fill-slate-800 dark:fill-slate-200"}`}
           >
             {text}
           </text>
@@ -213,7 +213,7 @@ function WarningItem({ testId, w, design }: { testId: string; w: TimingWarning; 
         <>
           {" · "}
           {linked ? (
-            <a className="text-amber-700 underline dark:text-amber-400" href={w.source_url!} target="_blank" rel="noreferrer">
+            <a className="text-brand-700 underline dark:text-brand-400" href={w.source_url!} target="_blank" rel="noreferrer">
               {w.source_title}
             </a>
           ) : (
@@ -257,7 +257,7 @@ export default function TimingView({ projectId, revision, design }: { projectId:
         the millisecond; hover a bar to see where its time comes from.
       </p>
 
-      <section className="card p-4">
+      <section className="card p-4 overflow-x-auto">
         <h2 className="mb-2 text-sm font-semibold text-slate-500">Cycle-time check</h2>
         <table className="w-full text-sm" data-testid="timing-check">
           <thead>
@@ -351,7 +351,7 @@ export default function TimingView({ projectId, revision, design }: { projectId:
         <div className="flex flex-wrap items-center gap-4">
           <h2 className="text-sm font-semibold text-slate-500">Timing diagrams</h2>
           <span className="flex items-center gap-1 text-xs text-slate-500">
-            <i className="inline-block h-2.5 w-3 bg-amber-500" /> on the critical path
+            <i className="inline-block h-2.5 w-3 bg-brand-600" /> on the critical path
           </span>
           <span className="flex items-center gap-1 text-xs text-slate-500">
             <i className="inline-block h-2.5 w-3 bg-slate-300 dark:bg-slate-600" /> not on the critical path

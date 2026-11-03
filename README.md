@@ -23,6 +23,13 @@ Think special-purpose machines: packaging, filling, assembly, inspection.
 
 ## What works today
 
+- **Deep cobalt workspace.** A live project Overview with requirements, model counts, concept
+  envelopes and station inspection; project navigation opens Model, Timing, Layout, Parts,
+  Documents, PLC and Revisions. The on-demand assistant keeps its draft and active request
+  while closed or switching project views. Historical revisions are visibly read-only.
+  The responsive light interface uses the MF eagle logo and bundled IBM Plex fonts; see
+  [DESIGN.md](DESIGN.md) and the [renewal spec](docs/specs/frontend-renewal.md).
+
 - **Problem → machine.** The AI breaks the problem into stations along the product flow, adds
   infrastructure (frame, control cabinet, safety, utilities), and lists the components of each
   station with specs, suggested manufacturer, make/buy, wear parts, criticality (A/B/C) and
@@ -141,7 +148,7 @@ For private / on-premise models see [docs/ai-providers.md](docs/ai-providers.md)
 ```bash
 cd backend && pytest          # no network or keys needed
 cd frontend && npm run build  # type-check + production build
-cd frontend && npm run e2e    # browser test of the model editor (once: npx playwright install chromium)
+cd frontend && npm run e2e    # UI/navigation, editor, timing, revision and security tests (once: npx playwright install chromium)
 ```
 
 GitHub Actions runs all three on every push. The browser test starts its own scratch backend with
@@ -163,11 +170,12 @@ backend/
     storage.py           SQLite
   tests/
 frontend/src/
-  pages/                 Home, ProjectPage (chat + tabs), Suppliers
-  components/            Chat, DesignView, ModelEditor, Layout3D (three.js, concept blocks), LayoutView,
+  pages/                 Home (machines), ProjectPage (sidebar + assistant panel), Suppliers
+  components/            AppShell, ProjectSidebar, DesignView, ConceptPreview, StationInspector,
+                         Chat, ModelEditor, TimingView, Layout3D (three.js, concept blocks), LayoutView,
                          DocumentsView, PlcView, SparePartsView, RevisionsView + DiffView,
                          SupplierRatings
-frontend/e2e/            Playwright browser test
+frontend/e2e/            Playwright browser tests
 docs/                    PLAN (read first), engineering-rules, specs/ (one per phase), adr/,
                          architecture, output options, suppliers, AI providers
 ```

@@ -1,6 +1,9 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { api } from "../api";
+import AppShell from "../components/AppShell";
+import ProjectSidebar, { PROJECT_TABS, type ProjectTab } from "../components/ProjectSidebar";
+import Icon from "../components/Icon";
 import Chat from "../components/Chat";
 import DesignView from "../components/DesignView";
 import DocumentsView from "../components/DocumentsView";
@@ -12,99 +15,177 @@ import SparePartsView from "../components/SparePartsView";
 import TimingView from "../components/TimingView";
 import type { MachineDesign, Project } from "../types";
 
-const TABS = ["design", "model", "timing", "layout", "parts", "docs", "plc", "revisions"] as const;
-type Tab = (typeof TABS)[number];
-
 export default function ProjectPage() {
   const { id = "" } = useParams();
   const [project, setProject] = useState<Project | null>(null);
   const [error, setError] = useState<string | null>(null);
-  // The open tab lives in the URL (?tab=layout) so a refresh or a shared link keeps it.
   const [params, setParams] = useSearchParams();
-  const tab: Tab = TABS.find((t) => t === params.get("tab")) ?? "design";
-  const setTab = (t: Tab) => setParams(t === "design" ? {} : { tab: t }, { replace: true });
-  // Which revision the right panel shows; null = latest.
+  const tab: ProjectTab = PROJECT_TABS.find((t) => t === params.get("tab")) ?? "design";
   const [viewing, setViewing] = useState<{ number: number; design: MachineDesign } | null>(null);
   const [draft, setDraft] = useState("");
-
+  const [assistantOpen, setAssistantOpen] = useState(false);
+  const assistant = useRef<HTMLDialogElement>(null);
+  const setTab = (next: ProjectTab, stationId?: string) => {
+    const nextParams = new URLSearchParams();
+    if (next !== "design") nextParams.set("tab", next);
+    if (next === "model" && stationId) nextParams.set("station", stationId);
+    setParams(nextParams, { replace: true });
+  };
   useEffect(() => {
-    api.project(id).then(setProject).catch((e: Error) => setError(e.message));
+    let obsolete = false;
+    setError(null);
+    setViewing(null);
+    setDraft("");
+    setAssistantOpen(false);
+    api
+      .project(id)
+      .then((value) => {
+        if (!obsolete) setProject(value);
+      })
+      .catch((e: Error) => {
+        if (!obsolete) setError(e.message);
+      });
+    return () => {
+      obsolete = true;
+    };
   }, [id]);
-
-  const onUpdated = useCallback((p: Project) => {
-    setProject(p);
+  const onUpdated = useCallback((value: Project) => {
+    setProject(value);
     setViewing(null);
   }, []);
-
-  if (error) return <p className="text-red-600">{error}</p>;
-  if (!project) return <p className="text-slate-500">Loading…</p>;
-
-  const revision = viewing?.number ?? project.latest_revision;
-  const design = viewing?.design ?? project.design;
-  const tabs: [Tab, string][] = [
-    ["design", "Design"],
-    ["model", "Model"],
-    ["timing", "Timing"],
-    ["layout", "3D layout"],
-    ["parts", "Spare parts & suppliers"],
-    ["docs", "Documents"],
-    ["plc", "PLC"],
-    ["revisions", `Revisions (${project.latest_revision})`],
-  ];
-
+  useEffect(() => {
+    if (assistantOpen && !assistant.current?.open) assistant.current?.showModal();
+    else if (!assistantOpen) assistant.current?.close();
+  }, [assistantOpen]);
+  const current = project?.id === id ? project : null;
+  const design = viewing?.design ?? current?.design;
+  const focusStation = params.get("station");
+  useEffect(() => {
+    if (design && focusStation && !design.stations.some((s) => s.id === focusStation)) {
+      const next = new URLSearchParams(params);
+      next.delete("station");
+      setParams(next, { replace: true });
+    }
+  }, [design, focusStation, params, setParams]);
+  if (!current || !design)
+    return (
+      <AppShell title="Machine project">
+        <p className={error ? "text-red-700" : "muted"} role={error ? "alert" : "status"}>
+          {error ?? "Loading the machine…"}
+        </p>
+      </AppShell>
+    );
+  const revision = viewing?.number ?? current.latest_revision;
+  const openAssistant = (question?: string) => {
+    if (question !== undefined) setDraft(`${question} → `);
+    setAssistantOpen(true);
+  };
+  const headings: Partial<Record<ProjectTab, [string, string]>> = {
+    timing: ["Station timing", "Check computed cycles, critical paths and unresolved timing inputs."],
+    model: ["Machine model", "Inspect and edit the engineering inputs. Each save creates a checked revision."],
+    layout: ["Layout & drawings", "Inspect the concept layout and download its top view."],
+    parts: ["Parts & suppliers", "Review the parts in this revision and compare available offers."],
+    revisions: ["Revision history", "Inspect, compare and restore the machine's revisions."],
+  };
   return (
-    <div className="grid gap-6 lg:grid-cols-[380px_1fr] print:block">
-      <Chat project={project} onUpdated={onUpdated} draft={draft} setDraft={setDraft} />
-
-      <section className="min-w-0">
-        <div className="mb-4 flex flex-wrap items-center gap-2 border-b border-slate-200 print:hidden dark:border-slate-800">
-          {tabs.map(([key, label]) => (
-            <button
-              key={key}
-              onClick={() => setTab(key)}
-              className={`-mb-px border-b-2 px-3 py-2 text-sm ${
-                tab === key ? "border-amber-500 font-medium" : "border-transparent text-slate-500 hover:text-slate-800"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-          {viewing && (
-            <span className="ml-auto rounded bg-amber-100 px-2 py-0.5 text-xs text-amber-900">
-              Viewing revision {viewing.number} ·{" "}
-              <button className="underline" onClick={() => setViewing(null)}>
-                back to latest
-              </button>
-            </span>
-          )}
+    <AppShell
+      title={current.name}
+      revision={revision}
+      actions={
+        <button className="btn-secondary" aria-label="Engineering assistant" onClick={() => openAssistant()}>
+          <Icon name="spark" size={17} />
+          <span>Assistant</span>
+        </button>
+      }
+      sidebar={
+        <ProjectSidebar name={current.name} revisionCount={current.latest_revision} tab={tab} onNavigate={setTab} />
+      }
+    >
+      {viewing && (
+        <div className="historical-banner" data-testid="historical-revision">
+          <span>
+            Viewing revision {viewing.number} · read-only. Latest is revision {current.latest_revision}.
+          </span>
+          <button onClick={() => setViewing(null)}>Back to latest</button>
         </div>
-
-        {tab === "design" && <DesignView design={design} onAsk={(q) => setDraft(q)} />}
+      )}
+      {headings[tab] && (
+        <section className="project-heading">
+          <div>
+            <p className="eyebrow">Machine workspace</p>
+            <h1>{headings[tab]![0]}</h1>
+            <p>{headings[tab]![1]}</p>
+          </div>
+        </section>
+      )}
+      <section className="work-area">
+        {tab === "design" && (
+          <DesignView
+            key={`${id}:${revision}`}
+            projectId={id}
+            revision={revision}
+            design={design}
+            readOnly={viewing !== null}
+            onAsk={openAssistant}
+            onModel={(stationId) => setTab("model", stationId)}
+          />
+        )}
         {tab === "model" && (
           <ModelEditor
-            project={project}
+            project={current}
             design={design}
             revision={revision}
             readOnly={viewing !== null}
             onUpdated={onUpdated}
+            focusStationId={focusStation}
           />
         )}
-        {tab === "timing" && <TimingView projectId={project.id} revision={revision} design={design} />}
-        {tab === "layout" && <LayoutView projectId={project.id} revision={revision} design={design} />}
-        {tab === "parts" && <SparePartsView projectId={project.id} revision={revision} />}
-        {tab === "docs" && <DocumentsView projectId={project.id} revision={revision} />}
-        {tab === "plc" && <PlcView projectId={project.id} revision={revision} />}
+        {tab === "timing" && <TimingView projectId={id} revision={revision} design={design} />}
+        {tab === "layout" && (
+          <LayoutView key={`${id}:${revision}`} projectId={id} revision={revision} design={design} />
+        )}
+        {tab === "parts" && <SparePartsView key={`${id}:${revision}`} projectId={id} revision={revision} />}
+        {tab === "docs" && <DocumentsView key={`${id}:${revision}`} projectId={id} revision={revision} />}
+        {tab === "plc" && <PlcView key={`${id}:${revision}`} projectId={id} revision={revision} />}
         {tab === "revisions" && (
           <RevisionsView
-            project={project}
-            onView={(number, d) => {
-              setViewing(number === project.latest_revision ? null : { number, design: d });
+            project={current}
+            onView={(number, value) => {
+              setViewing(number === current.latest_revision ? null : { number, design: value });
               setTab("design");
             }}
             onRestored={onUpdated}
           />
         )}
       </section>
-    </div>
+      <dialog
+        className="assistant-dialog"
+        ref={assistant}
+        aria-labelledby="assistant-title"
+        onClose={() => setAssistantOpen(false)}
+        onClick={(event) => {
+          if (event.target === event.currentTarget) assistant.current?.close();
+        }}
+      >
+        <header className="dialog-heading">
+          <div>
+            <p className="eyebrow">Refine the machine</p>
+            <h2 id="assistant-title">Engineering assistant</h2>
+          </div>
+          <button className="icon-button" aria-label="Close assistant" onClick={() => assistant.current?.close()}>
+            <Icon name="close" />
+          </button>
+        </header>
+        <Chat
+          key={id}
+          project={current}
+          onUpdated={onUpdated}
+          draft={draft}
+          setDraft={setDraft}
+          viewingHistory={viewing !== null}
+          visible={assistantOpen}
+        />
+      </dialog>
+    </AppShell>
   );
 }

@@ -50,7 +50,7 @@ function Section({ section }: { section: DocSection }) {
           </table>
           {collapsible && (
             <button
-              className="w-full border-t border-slate-200 py-1.5 text-xs text-slate-500 hover:text-amber-600 print:hidden dark:border-slate-800"
+              className="w-full border-t border-slate-200 py-1.5 text-xs text-slate-500 hover:text-brand-600 print:hidden dark:border-slate-800"
               onClick={() => setExpanded(!expanded)}
             >
               {expanded ? "Show less" : `Show all ${rows.length} rows`}
@@ -98,7 +98,7 @@ function TemplateControl() {
           "default"
         )}
       </span>
-      <label className="cursor-pointer underline hover:text-amber-600">
+      <label className="cursor-pointer underline hover:text-brand-600">
         {status?.exists ? "replace" : "upload your .docx template"}
         <input type="file" accept=".docx" className="hidden" onChange={(e) => upload(e.target.files?.[0])} />
       </label>

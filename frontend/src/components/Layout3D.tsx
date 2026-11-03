@@ -8,7 +8,7 @@ import { CSS2DObject, CSS2DRenderer } from "three/examples/jsm/renderers/CSS2DRe
 import type { Layout, MachineDesign } from "../types";
 
 const COLORS: Record<string, number> = {
-  process: 0xf59e0b,
+  process: 0x647bbc,
   transport: 0x94a3b8,
   inspection: 0x38bdf8,
   control: 0x64748b,
@@ -24,7 +24,7 @@ const LEGEND: [string, string][] = [
   ["utility", "Utility"],
   ["guard", "Guarding"],
 ];
-const SELECTED_EMISSIVE = 0x7c2d12;
+const SELECTED_EMISSIVE = 0x203187;
 
 const toThree = (x: number, y: number, z: number) => new THREE.Vector3(x / 1000, z / 1000, y / 1000);
 
@@ -44,9 +44,8 @@ export default function Layout3D({ layout, design }: Props) {
   useEffect(() => {
     const el = mount.current;
     if (!el) return;
-    const dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(dark ? 0x0f172a : 0xf1f5f9);
+    scene.background = new THREE.Color(0xf0f2f6);
 
     const camera = new THREE.PerspectiveCamera(45, el.clientWidth / el.clientHeight, 0.1, 500);
     const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -110,9 +109,9 @@ export default function Layout3D({ layout, design }: Props) {
     // Product flow line with an arrow head.
     if (layout.flow.length >= 2) {
       const points = layout.flow.map(([x, y, z]) => toThree(x, y, z));
-      scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), new THREE.LineBasicMaterial({ color: 0xea580c })));
+      scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), new THREE.LineBasicMaterial({ color: 0x293da7 })));
       const [a, b] = points.slice(-2);
-      const arrow = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.25, 16), new THREE.MeshBasicMaterial({ color: 0xea580c }));
+      const arrow = new THREE.Mesh(new THREE.ConeGeometry(0.08, 0.25, 16), new THREE.MeshBasicMaterial({ color: 0x293da7 }));
       arrow.position.copy(b);
       arrow.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize());
       scene.add(arrow);
@@ -127,7 +126,7 @@ export default function Layout3D({ layout, design }: Props) {
     const center = bounds.isEmpty() ? new THREE.Vector3() : bounds.getCenter(new THREE.Vector3());
     const span = bounds.isEmpty() ? 6 : Math.max(bounds.max.x - bounds.min.x, bounds.max.z - bounds.min.z, 3);
     const gridSize = Math.ceil(span) + 4;
-    const grid = new THREE.GridHelper(gridSize, gridSize, dark ? 0x334155 : 0xcbd5e1, dark ? 0x1e293b : 0xe2e8f0);
+    const grid = new THREE.GridHelper(gridSize, gridSize, 0xcbd2df, 0xe1e5ed);
     grid.position.set(center.x, 0, center.z);
     scene.add(grid);
 
@@ -219,7 +218,7 @@ export default function Layout3D({ layout, design }: Props) {
             <input type="checkbox" checked={showGuards} onChange={(e) => setShowGuards(e.target.checked)} />
             Guards
           </label>
-          <button className="rounded bg-white/85 px-2 py-1 text-xs hover:bg-white dark:bg-slate-900/85" onClick={() => resetView.current()}>
+          <button className="btn-secondary min-h-11 bg-white/95 px-3 text-xs" onClick={() => resetView.current()}>
             Reset view
           </button>
         </div>
@@ -265,7 +264,7 @@ export default function Layout3D({ layout, design }: Props) {
                 </li>
               ))}
               <li className="flex items-center gap-2">
-                <span className="h-0.5 w-3 bg-orange-600" /> Product flow
+                <span className="h-0.5 w-3 bg-brand-600" /> Product flow
               </li>
             </ul>
             <p className="mt-4 text-xs text-slate-500">

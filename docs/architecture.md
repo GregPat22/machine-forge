@@ -135,6 +135,19 @@ far, the latest line of the model's thinking summary), then one `done` (the proj
 The design call runs in a worker thread; the Claude provider reports from the stream deltas. The
 frontend reads the stream with `fetch` (`streamDesign` in `src/api.ts`).
 
+## Frontend workspace
+
+`AppShell` provides responsive project/workspace navigation and the self-hosted deep cobalt
+identity ([DESIGN.md](../DESIGN.md), [ADR 0034](adr/0034-deep-cobalt-frontend-renewal.md)).
+`ProjectPage` preserves existing tab URL values; an optional station ID opens that station in
+the model editor. `DesignView` reads requirements and counts from the viewed design.
+`ConceptPreview` projects the existing layout response into an interactive envelope summary;
+screen projection does not write machine coordinates. `StationInspector` reads the model.
+The native assistant dialog stays mounted across project-view changes, preserving drafts and
+stream state. Historical editors are read-only; assistant prompts edit the latest design.
+Output screens are keyed by project and viewed revision so results and downloads stay aligned.
+See the bounded [frontend renewal spec](specs/frontend-renewal.md).
+
 ## 3D view
 
 `components/Layout3D.tsx` renders the layout boxes from `services/layout.py` as labelled blocks.

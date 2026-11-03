@@ -46,6 +46,7 @@ export default function RevisionsView({ project, onView, onRestored }: Props) {
             {(["from", "to"] as const).map((key) => (
               <select
                 key={key}
+                aria-label={`Compare ${key} revision`}
                 className="rounded border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-700 dark:bg-slate-900"
                 value={compare[key]}
                 onChange={(e) => setCompare({ ...compare, [key]: Number(e.target.value) })}
@@ -66,10 +67,10 @@ export default function RevisionsView({ project, onView, onRestored }: Props) {
         {[...revisions].reverse().map((r) => {
           const parts = r.design.stations.reduce((n, s) => n + s.components.length, 0);
           return (
-            <div key={r.number} className="card p-4">
-              <div className="flex items-start gap-4">
+            <div key={r.number} className="card p-4" data-testid={`revision-${r.number}`}>
+              <div className="revision-row">
                 <div className="w-10 shrink-0 font-mono text-sm text-slate-400">r{r.number}</div>
-                <div className="min-w-0 flex-1">
+                <div className="revision-copy">
                   <div className="text-sm font-medium">{r.prompt}</div>
                   <div className="mt-0.5 text-sm text-slate-500">{r.reply}</div>
                   <div className="mt-1 text-xs text-slate-400">
@@ -77,7 +78,7 @@ export default function RevisionsView({ project, onView, onRestored }: Props) {
                     {new Date(r.created_at).toLocaleString()}
                   </div>
                 </div>
-                <div className="flex shrink-0 gap-2">
+                <div className="revision-actions">
                   {r.number > 1 && (
                     <button className="btn-secondary" onClick={() => setOpen(open === r.number ? null : r.number)}>
                       {open === r.number ? "Hide changes" : "Changes"}

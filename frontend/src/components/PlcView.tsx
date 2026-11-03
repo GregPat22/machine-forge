@@ -65,7 +65,7 @@ export default function PlcView({ projectId, revision }: { projectId: string; re
             <li key={f.name}>
               <button
                 className={`w-full px-3 py-2 text-left font-mono text-xs ${
-                  f.name === file?.name ? "bg-amber-100 dark:bg-amber-900/40" : "hover:bg-slate-50 dark:hover:bg-slate-800"
+                  f.name === file?.name ? "bg-brand-100 dark:bg-brand-900/40" : "hover:bg-slate-50 dark:hover:bg-slate-800"
                 }`}
                 onClick={() => setSelected(f.name)}
               >

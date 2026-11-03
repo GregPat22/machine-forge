@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import AppShell from "../components/AppShell";
 import { Link, useNavigate } from "react-router-dom";
 import { api, progressText } from "../api";
 import type { Progress, ProjectSummary } from "../types";
@@ -19,7 +20,10 @@ export default function Home() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    api.projects().then(setProjects).catch((e: Error) => setError(e.message));
+    api
+      .projects()
+      .then(setProjects)
+      .catch((e: Error) => setError(e.message));
   }, []);
 
   async function create() {
@@ -42,59 +46,71 @@ export default function Home() {
   }
 
   return (
-    <div className="grid gap-8 lg:grid-cols-[3fr_2fr]">
-      <section className="card p-6">
-        <h1 className="text-2xl font-semibold tracking-tight">What problem should the machine solve?</h1>
-        <p className="mt-1 text-sm text-slate-500">
-          Describe the product, the throughput and any constraints. You get a first machine design, then refine it by
-          prompting. The spare-parts catalog and the supplier comparison follow every revision.
+    <AppShell title="Machines">
+      <header className="home-heading">
+        <p className="eyebrow">Concept engineering workspace</p>
+        <h1>Your next machine starts here.</h1>
+        <p>
+          Turn a production brief into a machine concept. Review the engineering inputs, refine the model and keep every
+          revision.
         </p>
-        <textarea
-          className="input mt-4 min-h-36"
-          placeholder="e.g. We need to pack 300 tablets per minute into blisters…"
-          value={problem}
-          onChange={(e) => setProblem(e.target.value)}
-        />
-        <div className="mt-3 flex flex-wrap gap-2">
-          {EXAMPLES.map((example) => (
-            <button
-              key={example}
-              className="rounded-full border border-slate-300 px-3 py-1 text-left text-xs text-slate-600 hover:border-amber-500 dark:border-slate-700 dark:text-slate-300"
-              onClick={() => setProblem(example)}
-            >
-              {example.length > 60 ? `${example.slice(0, 60)}…` : example}
-            </button>
-          ))}
-        </div>
-        <div className="mt-4 flex items-center gap-3">
-          <button className="btn-primary" disabled={busy || problem.trim().length < 10} onClick={create}>
-            {busy ? "Designing the machine…" : "Design the machine"}
-          </button>
-          {busy && <span className="text-xs text-slate-500 italic">{progressText(progress)}</span>}
-        </div>
-        {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
-      </section>
-
-      <section>
-        <h2 className="mb-3 text-sm font-semibold tracking-wide text-slate-500 uppercase">Your machines</h2>
-        {projects.length === 0 && <p className="text-sm text-slate-500">No machines yet.</p>}
-        <ul className="space-y-3">
-          {projects.map((p) => (
-            <li key={p.id} className="card flex items-start gap-3 p-4">
-              <Link to={`/projects/${p.id}`} className="min-w-0 flex-1">
-                <div className="font-medium hover:text-amber-600">{p.name}</div>
-                <div className="mt-0.5 line-clamp-2 text-xs text-slate-500">{p.problem}</div>
-                <div className="mt-1 text-xs text-slate-400">
-                  Revision {p.latest_revision} · {new Date(p.updated_at).toLocaleString()}
-                </div>
-              </Link>
-              <button className="text-xs text-slate-400 hover:text-red-600" onClick={() => remove(p.id)}>
-                Delete
+      </header>
+      <div className="home-grid">
+        <section className="card creation-panel">
+          <h2>What problem should the machine solve?</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Describe the product, the throughput and any constraints. You get a first machine design, then refine it by
+            prompting. The spare-parts catalog and the supplier comparison follow every revision.
+          </p>
+          <label htmlFor="production-brief">Production brief</label>
+          <textarea
+            id="production-brief"
+            className="input mt-4 min-h-36"
+            placeholder="e.g. We need to pack 300 tablets per minute into blisters…"
+            value={problem}
+            onChange={(e) => setProblem(e.target.value)}
+          />
+          <details className="example-options">
+            <summary>Start from an example</summary>
+            {EXAMPLES.map((example) => (
+              <button key={example} className="text-slate-600" onClick={() => setProblem(example)}>
+                {example.length > 60 ? `${example.slice(0, 60)}…` : example}
               </button>
-            </li>
-          ))}
-        </ul>
-      </section>
-    </div>
+            ))}
+          </details>
+          <div className="mt-4 flex items-center gap-3">
+            <button className="btn-primary" disabled={busy || problem.trim().length < 10} onClick={create}>
+              {busy ? "Designing the machine…" : "Design the machine"}
+            </button>
+            {busy && <span className="text-xs text-slate-500 italic">{progressText(progress)}</span>}
+          </div>
+          {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+        </section>
+
+        <section>
+          <h2 className="mb-3 text-sm font-semibold tracking-wide text-slate-500 uppercase">Your machines</h2>
+          {projects.length === 0 && <p className="text-sm text-slate-500">No machines yet.</p>}
+          <ul className="project-list">
+            {projects.map((p) => (
+              <li key={p.id} className="card project-list-item">
+                <Link to={`/projects/${p.id}`} className="min-w-0 flex-1">
+                  <strong className="hover:text-brand-600">{p.name}</strong>
+                  <div className="mt-0.5 line-clamp-2 text-xs text-slate-500">{p.problem}</div>
+                  <div className="mt-1 text-xs text-slate-400">
+                    Revision {p.latest_revision} · {new Date(p.updated_at).toLocaleString()}
+                  </div>
+                </Link>
+                <button
+                  className="text-xs text-slate-500 hover:text-red-700 min-h-11 px-2"
+                  onClick={() => remove(p.id)}
+                >
+                  Delete
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      </div>
+    </AppShell>
   );
 }

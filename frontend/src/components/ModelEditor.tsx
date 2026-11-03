@@ -272,7 +272,7 @@ function ItemTable<T>({
         </h4>
         {!readOnly && !adding && (
           <button
-            className="text-xs text-amber-700 hover:underline dark:text-amber-400"
+            className="text-xs text-brand-700 hover:underline dark:text-brand-400"
             onClick={() => setAdding(true)}
           >
             Add {noun}
@@ -329,7 +329,7 @@ function ItemTable<T>({
                       {!readOnly && (
                         <td className="td text-right text-xs whitespace-nowrap">
                           <button
-                            className="text-amber-700 hover:underline dark:text-amber-400"
+                            className="text-brand-700 hover:underline dark:text-brand-400"
                             aria-label={`Edit ${noun} ${key}`}
                             onClick={() => setEditing(key)}
                           >
@@ -486,13 +486,24 @@ function stationEdits(station: Station, after: StationFields): PatchOp[] {
 // --- Stations ----------------------------------------------------------------------------------
 
 /** `timing` is the station's timing result; undefined while it loads. */
-function StationCard({ station, timing }: { station: Station; timing: StationTiming | undefined }) {
+function StationCard({ station, timing, focused }: { station: Station; timing: StationTiming | undefined; focused: boolean }) {
   const { revision, save, busy, readOnly } = useContext(EditorContext);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
   const mechanismIds = station.mechanisms.map((m) => m.id);
   const sid = station.id;
+  useEffect(() => {
+    if (focused) {
+      setOpen(true);
+      const frame = requestAnimationFrame(() => {
+        const element = document.getElementById(`model-${sid}`);
+        element?.scrollIntoView({ block: "start" });
+        element?.querySelector<HTMLButtonElement>("button")?.focus({ preventScroll: true });
+      });
+      return () => cancelAnimationFrame(frame);
+    }
+  }, [focused, sid]);
 
   async function removeStation() {
     if (!confirm(`Remove station '${sid}'? This makes a new revision.`)) return;
@@ -500,7 +511,7 @@ function StationCard({ station, timing }: { station: Station; timing: StationTim
   }
 
   return (
-    <div className="card" data-testid={`station-${sid}`}>
+    <div className="card" id={`model-${sid}`} data-testid={`station-${sid}`}>
       <button
         className="flex w-full flex-wrap items-baseline gap-x-3 gap-y-1 px-4 py-3 text-left"
         aria-expanded={open}
@@ -549,7 +560,7 @@ function StationCard({ station, timing }: { station: Station; timing: StationTim
             )}
             {!readOnly && !editing && (
               <div className="flex gap-4 text-xs">
-                <button className="text-amber-700 hover:underline dark:text-amber-400" onClick={() => setEditing(true)}>
+                <button className="text-brand-700 hover:underline dark:text-brand-400" onClick={() => setEditing(true)}>
                   Edit station
                 </button>
                 <button className="text-slate-400 hover:text-red-600" disabled={busy} onClick={removeStation}>
@@ -731,7 +742,7 @@ function AddStation() {
   if (readOnly) return null;
   if (!open)
     return (
-      <button className="text-xs text-amber-700 hover:underline dark:text-amber-400" onClick={() => setOpen(true)}>
+      <button className="text-xs text-brand-700 hover:underline dark:text-brand-400" onClick={() => setOpen(true)}>
         Add station
       </button>
     );
@@ -772,9 +783,10 @@ interface Props {
   /** Viewing an older revision: shown, not editable. */
   readOnly: boolean;
   onUpdated: (project: Project) => void;
+  focusStationId?: string | null;
 }
 
-export default function ModelEditor({ project, design, revision, readOnly, onUpdated }: Props) {
+export default function ModelEditor({ project, design, revision, readOnly, onUpdated, focusStationId }: Props) {
   const [busy, setBusy] = useState(false);
   // The timing result gives a not-computable station its reasons (Phase 2, section I).
   const [timing, setTiming] = useState<Map<string, StationTiming> | null>(null);
@@ -850,7 +862,7 @@ export default function ModelEditor({ project, design, revision, readOnly, onUpd
             <AddStation />
           </div>
           {design.stations.map((s) => (
-            <StationCard key={s.id} station={s} timing={timing?.get(s.id)} />
+            <StationCard key={s.id} station={s} timing={timing?.get(s.id)} focused={s.id === focusStationId} />
           ))}
         </section>
 
