@@ -4,6 +4,10 @@ Written 2026-10-21 after a full review of the v0.3 codebase. This is the referen
 coding session (Claude Code, ChatGPT, agents). Read it before touching the repo. Decisions here
 override older text in `README.md` and `docs/output-options.md` until those are updated (Phase 0).
 
+The approved [deep cobalt frontend renewal](specs/frontend-renewal.md) is a bounded companion
+to the Phase 2 UI. It changes presentation/navigation and explicitly names frontend PLC/rating
+presentation; backend frozen modules and the engine phase order below remain unchanged.
+
 ## 1. What we are building
 
 **Open-source, AI-assisted concept engineering for special-purpose automatic machines.**

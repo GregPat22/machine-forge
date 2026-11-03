@@ -7,6 +7,8 @@ interface Props {
   onUpdated: (project: Project) => void;
   draft: string;
   setDraft: (text: string) => void;
+  viewingHistory?: boolean;
+  visible: boolean;
 }
 
 const SUGGESTIONS = [
@@ -17,7 +19,7 @@ const SUGGESTIONS = [
   "Make the line U-shaped, the hall is short",
 ];
 
-export default function Chat({ project, onUpdated, draft, setDraft }: Props) {
+export default function Chat({ project, onUpdated, draft, setDraft, viewingHistory, visible }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState<Progress | null>(null);
@@ -26,7 +28,7 @@ export default function Chat({ project, onUpdated, draft, setDraft }: Props) {
   // Scroll only the message list, never the page.
   useEffect(() => {
     if (list.current) list.current.scrollTop = list.current.scrollHeight;
-  }, [project.messages.length, busy, progress]);
+  }, [project.messages.length, busy, progress, visible]);
 
   async function send() {
     const message = draft.trim();
@@ -45,18 +47,18 @@ export default function Chat({ project, onUpdated, draft, setDraft }: Props) {
   }
 
   return (
-    <aside className="card flex h-[calc(100vh-8rem)] flex-col lg:sticky lg:top-4 print:hidden">
+    <aside className="chat print:hidden">
       <div className="border-b border-slate-200 px-4 py-3 dark:border-slate-800">
         <div className="truncate font-semibold">{project.name}</div>
-        <div className="text-xs text-slate-500">Refine the machine by prompting</div>
+        <div className="text-xs text-slate-500">{viewingHistory ? `Prompts edit the latest revision (${project.latest_revision}). Historical revisions remain read-only.` : "Refine the machine by prompting"}</div>
       </div>
 
-      <div ref={list} className="flex-1 space-y-3 overflow-y-auto px-4 py-3">
+      <div ref={list} className="chat-messages space-y-3">
         {project.messages.map((m, i) => (
           <div key={i} className={m.role === "user" ? "flex justify-end" : "flex"}>
             <div
-              className={`max-w-[90%] rounded-lg px-3 py-2 text-sm whitespace-pre-wrap ${
-                m.role === "user" ? "bg-amber-100 text-slate-900 dark:bg-amber-900/40 dark:text-amber-50" : "bg-slate-100 dark:bg-slate-800"
+              className={`max-w-[90%] rounded-sm px-3 py-2 text-sm whitespace-pre-wrap break-words ${
+                m.role === "user" ? "bg-brand-100 text-slate-900" : "bg-slate-100"
               }`}
             >
               {m.content}
@@ -66,33 +68,34 @@ export default function Chat({ project, onUpdated, draft, setDraft }: Props) {
         ))}
         {busy && (
           <div className="flex justify-end">
-            <div className="max-w-[90%] rounded-lg bg-amber-100 px-3 py-2 text-sm whitespace-pre-wrap dark:bg-amber-900/40">
+            <div className="max-w-[90%] rounded-sm bg-brand-100 px-3 py-2 text-sm whitespace-pre-wrap">
               {draft}
             </div>
           </div>
         )}
         {busy && (
           <div className="flex items-start gap-2 text-sm text-slate-500">
-            <span className="mt-1.5 h-2 w-2 shrink-0 animate-pulse rounded-full bg-amber-500" />
+            <span className="mt-1.5 h-2 w-2 shrink-0 animate-pulse rounded-full bg-brand-600" />
             <span className="italic">{progressText(progress)}</span>
           </div>
         )}
       </div>
 
-      <div className="border-t border-slate-200 p-3 dark:border-slate-800">
-        <div className="mb-2 flex flex-wrap gap-1">
+      <div className="chat-composer">
+        <details className="example-options"><summary>Ideas for your next change</summary><div className="chat-suggestions">
           {SUGGESTIONS.map((s) => (
             <button
               key={s}
-              className="rounded-full border border-slate-300 px-2 py-0.5 text-[11px] text-slate-600 hover:border-amber-500 dark:border-slate-700 dark:text-slate-300"
+              className="text-left"
               onClick={() => setDraft(s)}
             >
               {s}
             </button>
           ))}
-        </div>
+        </div></details>
         <textarea
           className="input min-h-20"
+          aria-label="Message"
           placeholder="e.g. Use Beckhoff instead of Siemens for the control system"
           value={draft}
           disabled={busy}

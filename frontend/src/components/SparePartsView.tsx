@@ -28,13 +28,13 @@ function OffersTable({ line, currency }: { line: SourcingLine; currency: string 
           <tr key={i} className={i === 0 && line.best ? "font-medium" : ""}>
             <td className="td">
               {o.url ? (
-                <a href={o.url} target="_blank" rel="noreferrer" className="underline hover:text-amber-600">
+                <a href={o.url} target="_blank" rel="noreferrer" className="underline hover:text-brand-600">
                   {o.supplier}
                 </a>
               ) : (
                 o.supplier
               )}
-              {o.is_current && <span className="ml-1 rounded bg-sky-100 px-1 text-[11px] text-sky-800">your list</span>}
+              {o.is_current && <span className="ml-1 rounded bg-brand-100 px-1 text-[11px] text-brand-700">your list</span>}
               {o.preferred && <span className="ml-1 rounded bg-emerald-100 px-1 text-[11px] text-emerald-800">preferred</span>}
               {o.rating !== null && <span className="ml-1 text-[11px] text-amber-600">{"★".repeat(Math.round(o.rating))}</span>}
             </td>

@@ -33,6 +33,7 @@ test("a station parameter edited in the model editor is a new revision and survi
   await editForm.getByRole("button", { name: "Save" }).click();
   await expect(page.getByRole("button", { name: "Revisions (3)" })).toBeVisible();
   await expect(row).toContainText("150");
+  await page.getByRole("button", { name: "Engineering assistant", exact: true }).click();
   await expect(page.getByText("from the model editor").first()).toBeVisible();
 
   // After a reload the value comes back from the server, on the Model tab (kept in the URL).
